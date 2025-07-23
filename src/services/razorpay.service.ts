@@ -1,0 +1,22 @@
+import Razorpay from 'razorpay';
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID as string,
+  key_secret: process.env.RAZORPAY_KEY_SECRET as string,
+});
+
+export async function createOrder(amount: number, currency = 'INR') {
+  return razorpay.orders.create({ amount, currency });
+}
+
+
+
+
+
+
+
+
+
+
+
+
