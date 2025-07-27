@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { sendOtpController, verifyOtpController } from '../controllers/auth.controller';
+import { sendOtpController, verifyOtpController, refreshTokenController } from '../controllers/auth.controller';
 import { otpRateLimit } from '../middlewares/rateLimit.middleware';
 
 const router = Router();
 
-router.post('/api/v1/auth/send-otp', otpRateLimit, sendOtpController);
-router.post('/api/v1/auth/verify-otp', verifyOtpController);
+router.post('/send-otp', otpRateLimit, sendOtpController);
+router.post('/verify-otp', verifyOtpController);
+router.post('/refresh', refreshTokenController);
 
 export default router;

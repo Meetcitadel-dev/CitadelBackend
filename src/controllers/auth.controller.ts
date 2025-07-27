@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { sendOtp, verifyOtp } from '../services/otp.service';
-import { sendEmail } from '../services/email.service';
+import { sendEmail } from '../services/email.nodemailer';
 import { isValidUniversityEmail } from '../utils/validator';
 import University from '../models/university.model';
 import User from '../models/user.model';
@@ -43,8 +43,18 @@ export const verifyOtpController = async (req: Request, res: Response) => {
   await user.save();
 
   // Generate JWT tokens
-  const accessToken = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'secret', { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+  const accessToken = jwt.sign({ 
+    sub: user.id, 
+    username: user.email.split('@')[0], // Use email prefix as username
+    role: 'USER', // Default role
+    email: user.email 
+  }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
+  const refreshToken = jwt.sign({ 
+    sub: user.id, 
+    username: user.email.split('@')[0],
+    role: 'USER',
+    email: user.email 
+  }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
 
   return res.json({
     success: true,
@@ -55,6 +65,37 @@ export const verifyOtpController = async (req: Request, res: Response) => {
       isProfileComplete: false, // TODO: Implement profile completion check
     },
   });
+};
+
+export const refreshTokenController = async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ success: false, message: 'Refresh token is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET || 'secret') as any;
+    const user = await User.findByPk(decoded.sub);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Generate new access token
+    const newAccessToken = jwt.sign({ 
+      sub: user.id, 
+      username: user.email.split('@')[0],
+      role: 'USER',
+      email: user.email 
+    }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
+
+    return res.json({
+      success: true,
+      accessToken: newAccessToken,
+    });
+  } catch (error) {
+    return res.status(401).json({ success: false, message: 'Invalid refresh token' });
+  }
 };
 
 
