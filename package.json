@@ -6,7 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "start": "node dist/server.js",
-    "build": "tsc"
+    "build": "tsc",
+    "get-simple-data": "ts-node src/scripts/simpleData.ts",
+    "delete-users": "ts-node src/scripts/deleteUsers.ts"
   },
   "keywords": [],
   "author": "",

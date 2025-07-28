@@ -42,7 +42,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
 User.init(
   {
     id: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
     },
@@ -57,7 +57,7 @@ User.init(
       defaultValue: false,
     },
     otpAttempts: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
     },
@@ -66,7 +66,7 @@ User.init(
       allowNull: true,
     },
     universityId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
     degree: {
@@ -106,6 +106,13 @@ User.init(
     timestamps: true,
   }
 );
+
+// Import University model for association
+import University from './university.model';
+
+// Define associations
+User.belongsTo(University, { foreignKey: 'universityId', as: 'university' });
+University.hasMany(User, { foreignKey: 'universityId', as: 'users' });
 
 export default User;
 

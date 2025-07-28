@@ -31,12 +31,12 @@ class UserImage extends Model<UserImageAttributes, UserImageCreationAttributes> 
 UserImage.init(
   {
     id: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
     },
     userId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       allowNull: false,
       references: {
         model: 'users',
@@ -48,7 +48,7 @@ UserImage.init(
       allowNull: false,
     },
     cloudfrontUrl: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: false,
     },
     originalName: {
@@ -60,7 +60,7 @@ UserImage.init(
       allowNull: false,
     },
     fileSize: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
   },

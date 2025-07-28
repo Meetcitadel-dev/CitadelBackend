@@ -15,8 +15,9 @@ app.use(express.json());
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api', universityRoutes); // Mount university routes before onboarding
+app.use('/api/v1/profile', profileRoutes);
+app.use('/api/profile', profileRoutes); // Add alias for backward compatibility
+app.use('/api', universityRoutes);
 app.use('/api/v1', onboardingRoutes);
 
 export default app;
