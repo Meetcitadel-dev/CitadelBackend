@@ -8,7 +8,8 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "get-simple-data": "ts-node src/scripts/simpleData.ts",
-    "delete-users": "ts-node src/scripts/deleteUsers.ts"
+    "delete-users": "ts-node src/scripts/deleteUsers.ts",
+    "reset-auto-increment": "ts-node src/scripts/resetAutoIncrement.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "@types/multer": "^2.0.0",
     "@types/sequelize": "^4.28.20",
     "aws-sdk": "^2.1692.0",
+    "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",

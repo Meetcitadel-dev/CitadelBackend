@@ -72,8 +72,7 @@ UserImage.init(
   }
 );
 
-// Define association
+// Define association (only one side to avoid circular dependency)
 UserImage.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(UserImage, { foreignKey: 'userId', as: 'images' });
 
 export default UserImage; 

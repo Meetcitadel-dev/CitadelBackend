@@ -1,0 +1,737 @@
+import { Request, Response } from 'express';
+import User from '../models/user.model';
+import University from '../models/university.model';
+import UserImage from '../models/userImage.model';
+import Connection from '../models/connection.model';
+import ConnectionRequest from '../models/connectionRequest.model';
+import AdjectiveMatch from '../models/adjectiveMatch.model';
+import Interaction from '../models/interaction.model';
+import { Op } from 'sequelize';
+
+// Adjective pool for matching
+const ADJECTIVES = [
+  'Smart', 'Creative', 'Funny', 'Ambitious', 'Kind',
+  'Adventurous', 'Reliable', 'Witty', 'Thoughtful', 'Bold',
+  'Genuine', 'Energetic', 'Calm', 'Inspiring', 'Curious', 'Intelligent'
+];
+
+// Matching criteria weights
+const MATCHING_CRITERIA = {
+  collegeWeight: 0.4,
+  yearWeight: 0.3,
+  degreeWeight: 0.2,
+  skillsWeight: 0.1
+};
+
+interface MatchingCriteria {
+  collegeWeight: number;
+  yearWeight: number;
+  degreeWeight: number;
+  skillsWeight: number;
+}
+
+interface AdjectiveMatchData {
+  userId1: string;
+  userId2: string;
+  adjective: string;
+  timestamp: Date;
+  matched: boolean;
+}
+
+// Calculate match score between two users
+const calculateMatchScore = (user1: any, user2: any): number => {
+  let score = 0;
+  
+  // Same college + same year + same degree (Score: 1.0)
+  if (user1.universityId === user2.universityId && 
+      user1.year === user2.year && 
+      user1.degree === user2.degree) {
+    score = 1.0;
+  }
+  // Same college + same year (Score: 0.7)
+  else if (user1.universityId === user2.universityId && 
+           user1.year === user2.year) {
+    score = 0.7;
+  }
+  // Same college (Score: 0.4)
+  else if (user1.universityId === user2.universityId) {
+    score = 0.4;
+  }
+  // Same city + same degree + same year (Score: 0.3)
+  else if (user1.university?.country === user2.university?.country && 
+           user1.degree === user2.degree && 
+           user1.year === user2.year) {
+    score = 0.3;
+  }
+  // Same city + same year (Score: 0.2)
+  else if (user1.university?.country === user2.university?.country && 
+           user1.year === user2.year) {
+    score = 0.2;
+  }
+  // Same city (Score: 0.1)
+  else if (user1.university?.country === user2.university?.country) {
+    score = 0.1;
+  }
+  
+  return score;
+};
+
+// Get connection state between two users
+const getConnectionState = async (userId1: number, userId2: number): Promise<any> => {
+  const connection = await Connection.findOne({
+    where: {
+      [Op.or]: [
+        { userId1, userId2 },
+        { userId1: userId2, userId2: userId1 }
+      ]
+    }
+  });
+  
+  return connection;
+};
+
+// Get selected adjectives for a user pair
+const getSelectedAdjectives = async (userId1: number, userId2: number): Promise<string[]> => {
+  const adjectives = await AdjectiveMatch.findAll({
+    where: {
+      userId1,
+      userId2
+    },
+    attributes: ['adjective']
+  });
+  
+  return adjectives.map(adj => adj.adjective);
+};
+
+// Fetch explore profiles with matching algorithm
+const getExploreProfiles = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { limit = 10, offset = 0 } = req.query;
+      const currentUserId = (req as any).user.id;
+
+      console.log('🔍 EXPLORE PROFILES DEBUG:');
+      console.log(`   Current User ID: ${currentUserId}`);
+      console.log(`   Limit: ${limit}, Offset: ${offset}`);
+
+      // Get current user with university info
+      const currentUser = await User.findByPk(currentUserId, {
+        include: [{
+          model: University,
+          as: 'university'
+        }]
+      });
+
+      if (!currentUser) {
+        res.status(404).json({ success: false, message: 'User not found' });
+        return;
+      }
+
+      // Get all users except current user and blocked users
+      const blockedConnections = await Connection.findAll({
+        where: {
+          [Op.or]: [
+            { userId1: currentUserId, status: 'blocked' },
+            { userId2: currentUserId, status: 'blocked' }
+          ]
+        }
+      });
+
+      const blockedUserIds = blockedConnections.map(conn => 
+        conn.userId1 === currentUserId ? conn.userId2 : conn.userId1
+      );
+
+      console.log(`   Blocked User IDs: ${blockedUserIds}`);
+
+      // Get interacted users (for filtering)
+      const previousInteractions = await Interaction.findAll({
+        where: {
+          userId: currentUserId,
+          interactionType: {
+            [Op.in]: ['viewed', 'connected', 'adjective_selected', 'blocked']
+          }
+        },
+        attributes: ['targetUserId']
+      });
+
+      const interactedUserIds = previousInteractions.map(interaction => interaction.targetUserId);
+      console.log(`   Interacted User IDs: ${interactedUserIds}`);
+
+      // Get all available users (excluding current user and blocked users)
+      let users = await User.findAll({
+        where: {
+          id: {
+            [Op.ne]: currentUserId,
+            [Op.notIn]: [...blockedUserIds, ...interactedUserIds]
+          },
+          isProfileComplete: true
+        },
+        include: [
+          {
+            model: University,
+            as: 'university'
+          },
+          {
+            model: UserImage,
+            as: 'images',
+            where: { id: { [Op.ne]: null } },
+            required: false
+          }
+        ],
+        limit: Number(limit),
+        order: [['createdAt', 'DESC']]
+      });
+
+      console.log(`   New users found: ${users.length}`);
+
+      // If not enough new users, get previously viewed users (allow repetition)
+      let additionalUsers: any[] = [];
+      if (users.length < Number(limit)) {
+        const remainingLimit = Number(limit) - users.length;
+        console.log(`   Getting ${remainingLimit} additional users...`);
+        
+        // Get recently interacted users for fallback
+        const recentlyInteracted = await Interaction.findAll({
+          where: {
+            userId: currentUserId,
+            interactionType: {
+              [Op.in]: ['viewed', 'connected', 'adjective_selected', 'blocked']
+            }
+          },
+          order: [['timestamp', 'DESC']],
+          limit: 20 // Get more to have variety
+        });
+
+        const recentlyInteractedIds = recentlyInteracted.map(interaction => interaction.targetUserId);
+        console.log(`   Recently interacted IDs: ${recentlyInteractedIds}`);
+
+        additionalUsers = await User.findAll({
+          where: {
+            id: {
+              [Op.ne]: currentUserId,
+              [Op.notIn]: blockedUserIds, // Don't exclude interacted users here - allow repetition
+              [Op.in]: recentlyInteractedIds // Only show previously interacted users
+            },
+            isProfileComplete: true
+          },
+          include: [
+            {
+              model: University,
+              as: 'university'
+            },
+            {
+              model: UserImage,
+              as: 'images',
+              where: { id: { [Op.ne]: null } },
+              required: false
+            }
+          ],
+          limit: remainingLimit,
+          order: [['createdAt', 'DESC']]
+        });
+
+        console.log(`   Additional users found: ${additionalUsers.length}`);
+      }
+
+      const allUsers = [...users, ...additionalUsers];
+      console.log(`   Total users to return: ${allUsers.length}`);
+
+      // Process each user to add match score and connection state
+      const profiles = await Promise.all(
+        allUsers.map(async (user) => {
+          const matchScore = calculateMatchScore(currentUser, user);
+          const connectionState = await getConnectionState(currentUserId, user.id);
+          const selectedAdjectives = await getSelectedAdjectives(currentUserId, user.id);
+
+          // Get profile image (first image or null)
+          const profileImage = (user as any).images && (user as any).images.length > 0 
+            ? (user as any).images[0].cloudfrontUrl 
+            : null;
+
+          // Get uploaded images
+          const uploadedImages = (user as any).images ? (user as any).images.map((img: any) => img.cloudfrontUrl) : [];
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            university: (user as any).university,
+            degree: user.degree,
+            year: user.year,
+            skills: user.skills || [],
+            profileImage,
+            uploadedImages,
+            connectionState: connectionState ? {
+              id: connectionState.id,
+              userId1: connectionState.userId1,
+              userId2: connectionState.userId2,
+              status: connectionState.status,
+              createdAt: connectionState.createdAt,
+              updatedAt: connectionState.updatedAt
+            } : null,
+            matchScore,
+            selectedAdjectives
+          };
+        })
+      );
+
+      // Sort by match score (highest first)
+      profiles.sort((a, b) => b.matchScore - a.matchScore);
+
+      // Return only the requested limit
+      const result = profiles.slice(0, Number(limit));
+
+      console.log(`   Final profiles to return: ${result.length}`);
+      result.forEach((profile, index) => {
+        console.log(`     ${index + 1}. ${profile.name} (ID: ${profile.id})`);
+      });
+
+      res.json({
+        success: true,
+        profiles: result,
+        hasMore: profiles.length > Number(limit),
+        totalCount: profiles.length
+      });
+
+    } catch (error) {
+      console.error('Error fetching explore profiles:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+// Manage connection requests
+const manageConnection = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { targetUserId, action } = req.body;
+      const currentUserId = (req as any).user.id;
+
+      if (!targetUserId || !action) {
+        res.status(400).json({ success: false, message: 'Missing required parameters' });
+        return;
+      }
+
+      let connectionState;
+      let message = '';
+
+      switch (action) {
+        case 'connect':
+          // Check if connection request already exists
+          const existingRequest = await ConnectionRequest.findOne({
+            where: {
+              requesterId: currentUserId,
+              targetId: targetUserId
+            }
+          });
+
+          if (existingRequest) {
+            if (existingRequest.status === 'pending') {
+              message = 'Connection request already sent';
+              connectionState = existingRequest;
+            } else if (existingRequest.status === 'accepted') {
+              message = 'Already connected';
+              connectionState = existingRequest;
+            } else if (existingRequest.status === 'rejected') {
+              message = 'Connection request was rejected';
+              connectionState = existingRequest;
+            }
+          } else {
+            // Create new connection request
+            connectionState = await ConnectionRequest.create({
+              requesterId: currentUserId,
+              targetId: targetUserId,
+              status: 'pending'
+            });
+            message = 'Connection request sent successfully';
+
+            // Track the interaction
+            await Interaction.create({
+              userId: currentUserId,
+              targetUserId: targetUserId,
+              interactionType: 'connected',
+              timestamp: new Date()
+            });
+          }
+          break;
+
+        case 'accept':
+          // Accept connection request
+          const request = await ConnectionRequest.findOne({
+            where: {
+              requesterId: targetUserId,
+              targetId: currentUserId,
+              status: 'pending'
+            }
+          });
+
+          if (!request) {
+            res.status(404).json({ success: false, message: 'Connection request not found' });
+            return;
+          }
+
+          await request.update({ status: 'accepted' });
+          
+          // Create or update connection
+          const [newConnection, created] = await Connection.findOrCreate({
+            where: {
+              [Op.or]: [
+                { userId1: targetUserId, userId2: currentUserId },
+                { userId1: currentUserId, userId2: targetUserId }
+              ]
+            },
+            defaults: {
+              userId1: targetUserId,
+              userId2: currentUserId,
+              status: 'connected'
+            }
+          });
+
+          if (!created) {
+            await newConnection.update({ status: 'connected' });
+          }
+
+          connectionState = newConnection;
+          message = 'Connection request accepted successfully';
+          break;
+
+        case 'reject':
+          // Reject connection request
+          const rejectRequest = await ConnectionRequest.findOne({
+            where: {
+              requesterId: targetUserId,
+              targetId: currentUserId,
+              status: 'pending'
+            }
+          });
+
+          if (!rejectRequest) {
+            res.status(404).json({ success: false, message: 'Connection request not found' });
+            return;
+          }
+
+          await rejectRequest.update({ status: 'rejected' });
+          message = 'Connection request rejected successfully';
+          break;
+
+        case 'remove':
+          // Remove connection
+          const existingConnection = await Connection.findOne({
+            where: {
+              [Op.or]: [
+                { userId1: currentUserId, userId2: targetUserId },
+                { userId1: targetUserId, userId2: currentUserId }
+              ]
+            }
+          });
+
+          if (!existingConnection) {
+            res.status(404).json({ success: false, message: 'Connection not found' });
+            return;
+          }
+
+          await existingConnection.destroy();
+          message = 'Connection removed successfully';
+          break;
+
+        case 'block':
+          // Block user
+          const blockConnection = await Connection.findOne({
+            where: {
+              [Op.or]: [
+                { userId1: currentUserId, userId2: targetUserId },
+                { userId1: targetUserId, userId2: currentUserId }
+              ]
+            }
+          });
+
+          if (blockConnection) {
+            await blockConnection.update({ status: 'blocked' });
+          } else {
+            await Connection.create({
+              userId1: currentUserId,
+              userId2: targetUserId,
+              status: 'blocked'
+            });
+          }
+
+          message = 'User blocked successfully';
+          break;
+
+        default:
+          res.status(400).json({ success: false, message: 'Invalid action' });
+          return;
+      }
+
+      res.json({
+        success: true,
+        message,
+        connectionState
+      });
+
+    } catch (error) {
+      console.error('Error managing connection:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  };
+
+// Select adjective for a profile
+const selectAdjective = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { targetUserId, adjective } = req.body;
+      const currentUserId = (req as any).user.id;
+
+      if (!targetUserId || !adjective) {
+        res.status(400).json({ success: false, message: 'Missing required parameters' });
+        return;
+      }
+
+      if (!ADJECTIVES.includes(adjective)) {
+        res.status(400).json({ success: false, message: 'Invalid adjective' });
+        return;
+      }
+
+      // Check if user has already interacted with this profile
+      const existingInteraction = await Interaction.findOne({
+        where: {
+          userId: currentUserId,
+          targetUserId: targetUserId,
+          interactionType: 'adjective_selected'
+        }
+      });
+
+      if (existingInteraction) {
+        res.status(400).json({ 
+          success: false, 
+          message: 'You have already interacted with this profile. Please explore other profiles first.' 
+        });
+        return;
+      }
+
+      // Create or update adjective selection
+      const [adjectiveMatch, created] = await AdjectiveMatch.findOrCreate({
+        where: {
+          userId1: currentUserId,
+          userId2: targetUserId,
+          adjective
+        },
+        defaults: {
+          userId1: currentUserId,
+          userId2: targetUserId,
+          adjective,
+          timestamp: new Date(),
+          matched: false
+        }
+      });
+
+      if (!created) {
+        // Update timestamp if already exists
+        await adjectiveMatch.update({ timestamp: new Date() });
+      }
+
+      // Track the interaction
+      await Interaction.create({
+        userId: currentUserId,
+        targetUserId: targetUserId,
+        interactionType: 'adjective_selected',
+        timestamp: new Date()
+      });
+
+      // Check for mutual match
+      const mutualMatch = await AdjectiveMatch.findOne({
+        where: {
+          userId1: targetUserId,
+          userId2: currentUserId,
+          adjective
+        }
+      });
+
+      let matched = false;
+      let matchData = null;
+
+      if (mutualMatch) {
+        // Update both records as matched
+        await adjectiveMatch.update({ matched: true });
+        await mutualMatch.update({ matched: true });
+        matched = true;
+        matchData = {
+          userId1: currentUserId,
+          userId2: targetUserId,
+          adjective,
+          timestamp: new Date(),
+          matched: true
+        };
+      }
+
+      res.json({
+        success: true,
+        matched,
+        matchData
+      });
+
+    } catch (error) {
+      console.error('Error selecting adjective:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+// Get adjective matches for current user
+const getAdjectiveMatches = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const currentUserId = (req as any).user.id;
+
+      const matches = await AdjectiveMatch.findAll({
+        where: {
+          [Op.or]: [
+            { userId1: currentUserId },
+            { userId2: currentUserId }
+          ],
+          matched: true
+        },
+        include: [
+          {
+            model: User,
+            as: 'user1',
+            attributes: ['id', 'name', 'email']
+          },
+          {
+            model: User,
+            as: 'user2',
+            attributes: ['id', 'name', 'email']
+          }
+        ]
+      });
+
+             const formattedMatches = matches.map(match => ({
+         userId1: match.userId1,
+         userId2: match.userId2,
+         adjective: match.adjective,
+         timestamp: match.timestamp,
+         matched: match.matched,
+         otherUser: match.userId1 === currentUserId ? (match as any).user2 : (match as any).user1
+       }));
+
+      res.json({
+        success: true,
+        matches: formattedMatches
+      });
+
+    } catch (error) {
+      console.error('Error getting adjective matches:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+// Check if user has already selected an adjective for a profile
+const checkAdjectiveSelection = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { targetUserId } = req.params;
+    const currentUserId = (req as any).user.id;
+
+    if (!targetUserId) {
+      res.status(400).json({ success: false, message: 'Missing target user ID' });
+      return;
+    }
+
+    // Check if user has already selected an adjective for this profile
+    const existingInteraction = await Interaction.findOne({
+      where: {
+        userId: currentUserId,
+        targetUserId: parseInt(targetUserId),
+        interactionType: 'adjective_selected'
+      }
+    });
+
+    if (existingInteraction) {
+      res.json({
+        success: true,
+        hasSelectedAdjective: true,
+        message: 'You have already selected an adjective for this profile'
+      });
+    } else {
+      res.json({
+        success: true,
+        hasSelectedAdjective: false,
+        message: 'No adjective selected for this profile yet'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error checking adjective selection:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
+// Track profile view
+const trackProfileView = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { targetUserId } = req.body;
+    const currentUserId = (req as any).user.id;
+
+    if (!targetUserId) {
+      res.status(400).json({ success: false, message: 'Missing targetUserId' });
+      return;
+    }
+
+    // Check if already tracked
+    const existingView = await Interaction.findOne({
+      where: {
+        userId: currentUserId,
+        targetUserId: targetUserId,
+        interactionType: 'viewed'
+      }
+    });
+
+    if (!existingView) {
+      // Track the view
+      await Interaction.create({
+        userId: currentUserId,
+        targetUserId: targetUserId,
+        interactionType: 'viewed',
+        timestamp: new Date()
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile view tracked'
+    });
+
+  } catch (error) {
+    console.error('Error tracking profile view:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get connection status with specific user
+const getConnectionStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { targetUserId } = req.params;
+      const currentUserId = (req as any).user.id;
+
+      const connectionState = await getConnectionState(currentUserId, Number(targetUserId));
+
+      res.json({
+        success: true,
+        connectionState: connectionState ? {
+          id: connectionState.id,
+          userId1: connectionState.userId1,
+          userId2: connectionState.userId2,
+          status: connectionState.status,
+          createdAt: connectionState.createdAt,
+          updatedAt: connectionState.updatedAt
+        } : null
+      });
+
+    } catch (error) {
+      console.error('Error getting connection status:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  };
+
+export default {
+  getExploreProfiles,
+  manageConnection,
+  selectAdjective,
+  getAdjectiveMatches,
+  getConnectionStatus,
+  trackProfileView,
+  checkAdjectiveSelection
+}; 

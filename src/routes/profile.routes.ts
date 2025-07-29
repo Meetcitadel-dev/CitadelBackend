@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { uploadUserImage, getUserImages, deleteUserImage, getSignedUrl, getMyProfile, testSignedUrl } from '../controllers/profile.controller';
+import { uploadUserImage, getUserImages, deleteUserImage, getSignedUrl, getMyProfile, testSignedUrl, updateProfile } from '../controllers/profile.controller';
 import { uploadSingleImage, handleUploadError } from '../middlewares/upload.middleware';
 import { authenticateToken } from '../middlewares/auth.middleware';
 
@@ -25,6 +25,9 @@ router.get('/images/:imageId/signed-url', getSignedUrl);
 
 // Test signed URL generation (for debugging)
 router.get('/test-signed-url', testSignedUrl);
+
+// Update profile
+router.put('/update', updateProfile);
 
 export default router;
 

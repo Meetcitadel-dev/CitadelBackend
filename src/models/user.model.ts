@@ -14,6 +14,13 @@ export interface UserAttributes {
   dateOfBirth?: Date;
   skills?: string[];
   friends?: string[];
+  aboutMe?: string;
+  sports?: string;
+  movies?: string;
+  tvShows?: string;
+  teams?: string;
+  portfolioLink?: string;
+  phoneNumber?: string;
   isProfileComplete: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -34,6 +41,13 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public dateOfBirth?: Date;
   public skills?: string[];
   public friends?: string[];
+  public aboutMe?: string;
+  public sports?: string;
+  public movies?: string;
+  public tvShows?: string;
+  public teams?: string;
+  public portfolioLink?: string;
+  public phoneNumber?: string;
   public isProfileComplete!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -93,6 +107,41 @@ User.init(
       type: DataTypes.JSON,
       allowNull: true,
     },
+    aboutMe: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'about_me',
+    },
+    sports: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'sports',
+    },
+    movies: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'movies',
+    },
+    tvShows: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'tv_shows',
+    },
+    teams: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'teams',
+    },
+    portfolioLink: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: 'portfolio_link',
+    },
+    phoneNumber: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: 'phone_number',
+    },
     isProfileComplete: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -107,12 +156,7 @@ User.init(
   }
 );
 
-// Import University model for association
-import University from './university.model';
-
-// Define associations
-User.belongsTo(University, { foreignKey: 'universityId', as: 'university' });
-University.hasMany(User, { foreignKey: 'universityId', as: 'users' });
+// Associations will be set up in associations.ts
 
 export default User;
 

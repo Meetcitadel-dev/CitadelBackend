@@ -249,6 +249,13 @@ export const getMyProfile = async (req: Request, res: Response) => {
       gender: user.gender || null,
       dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().split('T')[0] : null, // Format as YYYY-MM-DD
       skills: Array.isArray(user.skills) ? user.skills : [],
+      aboutMe: user.aboutMe || null,
+      sports: user.sports || null,
+      movies: user.movies || null,
+      tvShows: user.tvShows || null,
+      teams: user.teams || null,
+      portfolioLink: user.portfolioLink || null,
+      phoneNumber: user.phoneNumber || null,
       friends: Array.isArray(user.friends) ? user.friends : [],
       isProfileComplete: user.isProfileComplete,
       isEmailVerified: user.isEmailVerified,
@@ -343,5 +350,205 @@ export const testSignedUrl = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error testing signed URL:', error);
     res.status(500).json({ error: 'Failed to test signed URL' });
+  }
+};
+
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'User not authenticated' 
+      });
+    }
+
+    // Find the user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const {
+      name,
+      gender,
+      degree,
+      year,
+      skills,
+      aboutMe,
+      sports,
+      movies,
+      tvShows,
+      teams,
+      portfolioLink,
+      phoneNumber,
+      dateOfBirth
+    } = req.body;
+
+    // Validation
+    const errors: { [key: string]: string[] } = {};
+
+    if (name && name.length > 100) {
+      errors.name = ['Name cannot exceed 100 characters'];
+    }
+
+    if (gender && !['Male', 'Female', 'Other'].includes(gender)) {
+      errors.gender = ['Gender must be one of: Male, Female, Other'];
+    }
+
+    if (degree && degree.length > 100) {
+      errors.degree = ['Degree cannot exceed 100 characters'];
+    }
+
+    if (year && year.length > 10) {
+      errors.year = ['Year cannot exceed 10 characters'];
+    }
+
+    if (skills && Array.isArray(skills) && skills.length > 10) {
+      errors.skills = ['Skills cannot exceed 10 items'];
+    }
+
+    if (aboutMe && aboutMe.length > 140) {
+      errors.aboutMe = ['About me cannot exceed 140 characters'];
+    }
+
+    if (sports && sports.length > 255) {
+      errors.sports = ['Sports cannot exceed 255 characters'];
+    }
+
+    if (movies && movies.length > 255) {
+      errors.movies = ['Movies cannot exceed 255 characters'];
+    }
+
+    if (tvShows && tvShows.length > 255) {
+      errors.tvShows = ['TV shows cannot exceed 255 characters'];
+    }
+
+    if (teams && teams.length > 255) {
+      errors.teams = ['Teams cannot exceed 255 characters'];
+    }
+
+    if (portfolioLink && portfolioLink.length > 500) {
+      errors.portfolioLink = ['Portfolio link cannot exceed 500 characters'];
+    }
+
+    if (phoneNumber && phoneNumber.length > 20) {
+      errors.phoneNumber = ['Phone number cannot exceed 20 characters'];
+    }
+
+    // Validate date format if provided
+    if (dateOfBirth) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(dateOfBirth)) {
+        errors.dateOfBirth = ['Date of birth must be in YYYY-MM-DD format'];
+      }
+    }
+
+    // If there are validation errors, return them
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+
+    // Update user profile
+    const updateData: any = {};
+    
+    if (name !== undefined) updateData.name = name;
+    if (gender !== undefined) updateData.gender = gender;
+    if (degree !== undefined) updateData.degree = degree;
+    if (year !== undefined) updateData.year = year;
+    if (skills !== undefined) updateData.skills = skills;
+    if (aboutMe !== undefined) updateData.aboutMe = aboutMe;
+    if (sports !== undefined) updateData.sports = sports;
+    if (movies !== undefined) updateData.movies = movies;
+    if (tvShows !== undefined) updateData.tvShows = tvShows;
+    if (teams !== undefined) updateData.teams = teams;
+    if (portfolioLink !== undefined) updateData.portfolioLink = portfolioLink;
+    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+    if (dateOfBirth !== undefined) updateData.dateOfBirth = new Date(dateOfBirth);
+
+    await user.update(updateData);
+
+    // Fetch updated user with university data
+    const updatedUser = await User.findByPk(userId);
+    const university = updatedUser?.universityId ? await University.findByPk(updatedUser.universityId) : null;
+
+    // Fetch user images
+    const images = await UserImage.findAll({
+      where: { userId },
+      order: [['createdAt', 'DESC']],
+    });
+
+    // Generate fresh signed URLs for all images
+    const imagesWithFreshUrls = await Promise.all(
+      images.map(async (img) => {
+        let freshUrl;
+        try {
+          freshUrl = generateCloudFrontSignedUrl(img.s3Key);
+        } catch (error) {
+          console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
+          freshUrl = generateS3SignedUrl(img.s3Key);
+        }
+        
+        return {
+          id: img.id,
+          cloudfrontUrl: freshUrl,
+          originalName: img.originalName,
+          mimeType: img.mimeType,
+          fileSize: img.fileSize,
+          createdAt: img.createdAt
+        };
+      })
+    );
+
+    // Prepare response data
+    const responseData = {
+      id: updatedUser!.id,
+      name: updatedUser!.name,
+      email: updatedUser!.email,
+      university: university ? {
+        id: university.id,
+        name: university.name,
+        domain: university.domain,
+        country: university.country
+      } : null,
+      degree: updatedUser!.degree,
+      year: updatedUser!.year,
+      gender: updatedUser!.gender,
+      dateOfBirth: updatedUser!.dateOfBirth ? updatedUser!.dateOfBirth.toISOString().split('T')[0] : null,
+      skills: Array.isArray(updatedUser!.skills) ? updatedUser!.skills : [],
+      aboutMe: updatedUser!.aboutMe,
+      sports: updatedUser!.sports,
+      movies: updatedUser!.movies,
+      tvShows: updatedUser!.tvShows,
+      teams: updatedUser!.teams,
+      portfolioLink: updatedUser!.portfolioLink,
+      phoneNumber: updatedUser!.phoneNumber,
+      friends: Array.isArray(updatedUser!.friends) ? updatedUser!.friends : [],
+      isProfileComplete: updatedUser!.isProfileComplete,
+      isEmailVerified: updatedUser!.isEmailVerified,
+      images: imagesWithFreshUrls,
+      createdAt: updatedUser!.createdAt,
+      updatedAt: updatedUser!.updatedAt
+    };
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update profile' 
+    });
   }
 };

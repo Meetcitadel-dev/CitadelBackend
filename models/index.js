@@ -31,6 +31,23 @@ fs
     db[model.name] = model;
   });
 
+// Import TypeScript models manually
+try {
+  const User = require('../src/models/user.model').default;
+  const University = require('../src/models/university.model').default;
+  const UserImage = require('../src/models/userImage.model').default;
+  const Connection = require('../src/models/connection.model').default;
+  const AdjectiveMatch = require('../src/models/adjectiveMatch.model').default;
+  
+  db.User = User;
+  db.University = University;
+  db.UserImage = UserImage;
+  db.Connection = Connection;
+  db.AdjectiveMatch = AdjectiveMatch;
+} catch (error) {
+  console.log('TypeScript models not available, using JavaScript models only');
+}
+
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
