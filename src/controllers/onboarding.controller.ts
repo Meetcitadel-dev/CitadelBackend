@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import User from '../models/user.model';
+import { generateUsername } from './userProfile.controller';
 
 export const completeOnboarding = async (req: Request, res: Response) => {
   try {
@@ -37,9 +38,16 @@ export const completeOnboarding = async (req: Request, res: Response) => {
     // Parse date of birth
     const dateOfBirth = new Date(`${dob.year}-${dob.month}-${dob.day}`);
 
+    // Generate username if not already set
+    let username = user.username;
+    if (!username) {
+      username = await generateUsername(name);
+    }
+
     // Update user profile
     await user.update({
       name,
+      username,
       universityId: university.id,
       degree,
       year,
@@ -57,6 +65,7 @@ export const completeOnboarding = async (req: Request, res: Response) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        username: user.username,
         universityId: user.universityId,
         degree: user.degree,
         year: user.year,

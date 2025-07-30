@@ -7,6 +7,7 @@ export interface UserAttributes {
   isEmailVerified: boolean;
   otpAttempts: number;
   name?: string;
+  username?: string;
   universityId?: number;
   degree?: string;
   year?: string;
@@ -34,6 +35,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public isEmailVerified!: boolean;
   public otpAttempts!: number;
   public name?: string;
+  public username?: string;
   public universityId?: number;
   public degree?: string;
   public year?: string;
@@ -78,6 +80,11 @@ User.init(
     name: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    username: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      unique: true,
     },
     universityId: {
       type: DataTypes.INTEGER,

@@ -10,6 +10,8 @@ import onboardingRoutes from './routes/onboarding.routes';
 import exploreRoutes from './routes/explore.routes';
 import connectionsRoutes from './routes/connections.routes';
 import notificationRoutes from './routes/notification.routes';
+import userProfileRoutes from './routes/userProfile.routes';
+import chatRoutes from './routes/chat.routes';
 
 const app = express();
 
@@ -25,5 +27,7 @@ app.use('/api/v1', onboardingRoutes);
 app.use('/api/v1/explore', exploreRoutes);
 app.use('/api/v1/connections', connectionsRoutes); // Use dedicated connections routes
 app.use('/api/v1', notificationRoutes); // Add notification routes
+app.use('/api/v1/users', userProfileRoutes); // Add user profile routes
+app.use('/api/v1/chats', chatRoutes); // Add chat routes
 
 export default app;

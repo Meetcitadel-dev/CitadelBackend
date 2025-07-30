@@ -253,6 +253,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
           return {
             id: user.id,
             name: user.name,
+            username: user.username,
             email: user.email,
             university: (user as any).university,
             degree: user.degree,

@@ -6,8 +6,65 @@ import University from '../models/university.model';
 import User from '../models/user.model';
 import jwt from 'jsonwebtoken';
 
-export const sendOtpController = async (req: Request, res: Response) => {
+export const checkUserExistsController = async (req: Request, res: Response) => {
   const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Email is required' 
+    });
+  }
+
+  // Validate university email format
+  const universities = await University.findAll();
+  const allowedDomains = universities.map(u => u.domain);
+  if (!isValidUniversityEmail(email, allowedDomains)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Invalid university email domain' 
+    });
+  }
+
+  try {
+    // Check if user exists
+    const user = await User.findOne({ where: { email } });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found. Please sign up first.' 
+      });
+    }
+
+    // Check if user is email verified
+    if (!user.isEmailVerified) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email not verified. Please complete email verification first.' 
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'User exists and can proceed with login',
+      user: {
+        id: user.id,
+        email: user.email,
+        isProfileComplete: user.isProfileComplete
+      }
+    });
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error' 
+    });
+  }
+};
+
+export const sendOtpController = async (req: Request, res: Response) => {
+  const { email, isLogin = false } = req.body;
   if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
   // Get allowed university domains
@@ -18,10 +75,32 @@ export const sendOtpController = async (req: Request, res: Response) => {
   }
 
   try {
+    // For login flow, check if user exists first
+    if (isLogin) {
+      const existingUser = await User.findOne({ where: { email } });
+      if (!existingUser) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'User not found. Please sign up first.' 
+        });
+      }
+      
+      if (!existingUser.isEmailVerified) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Email not verified. Please complete email verification first.' 
+        });
+      }
+    }
+
     const { otp, expiresIn } = await sendOtp(email);
     await sendEmail(email, 'Your OTP Code', `Your OTP is: ${otp}`);
-    // Upsert user
-    await User.upsert({ email });
+    
+    // Only upsert user for signup flow, not for login
+    if (!isLogin) {
+      await User.upsert({ email });
+    }
+    
     return res.json({ success: true, message: 'OTP sent successfully', expiresIn });
   } catch (err: any) {
     return res.status(429).json({ success: false, message: err.message });
@@ -29,7 +108,7 @@ export const sendOtpController = async (req: Request, res: Response) => {
 };
 
 export const verifyOtpController = async (req: Request, res: Response) => {
-  const { email, otp } = req.body;
+  const { email, otp, isLogin = false } = req.body;
   if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required' });
 
   const user = await User.findOne({ where: { email } });
@@ -38,9 +117,12 @@ export const verifyOtpController = async (req: Request, res: Response) => {
   const valid = await verifyOtp(email, otp);
   if (!valid) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
 
-  user.isEmailVerified = true;
-  user.otpAttempts = 0;
-  await user.save();
+  // For signup flow, mark email as verified
+  if (!isLogin) {
+    user.isEmailVerified = true;
+    user.otpAttempts = 0;
+    await user.save();
+  }
 
   // Generate JWT tokens
   const accessToken = jwt.sign({ 
@@ -62,7 +144,24 @@ export const verifyOtpController = async (req: Request, res: Response) => {
     user: {
       id: user.id,
       email: user.email,
-      isProfileComplete: false, // TODO: Implement profile completion check
+      name: user.name,
+      username: user.username,
+      universityId: user.universityId,
+      degree: user.degree,
+      year: user.year,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth,
+      skills: user.skills,
+      friends: user.friends,
+      aboutMe: user.aboutMe,
+      sports: user.sports,
+      movies: user.movies,
+      tvShows: user.tvShows,
+      teams: user.teams,
+      portfolioLink: user.portfolioLink,
+      phoneNumber: user.phoneNumber,
+      isProfileComplete: user.isProfileComplete,
+      isEmailVerified: user.isEmailVerified,
     },
   });
 };

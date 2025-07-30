@@ -238,6 +238,7 @@ export const getMyProfile = async (req: Request, res: Response) => {
       id: user.id,
       email: user.email,
       name: user.name || null,
+      username: user.username || null,
       university: university ? {
         id: university.id,
         name: university.name,
@@ -511,6 +512,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     const responseData = {
       id: updatedUser!.id,
       name: updatedUser!.name,
+      username: updatedUser!.username,
       email: updatedUser!.email,
       university: university ? {
         id: university.id,

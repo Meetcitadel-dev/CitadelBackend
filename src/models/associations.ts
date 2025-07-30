@@ -6,6 +6,9 @@ import AdjectiveMatch from './adjectiveMatch.model';
 import Interaction from './interaction.model';
 import ConnectionRequest from './connectionRequest.model';
 import NotificationReadStatus from './notificationReadStatus.model';
+import Conversation from './conversation.model';
+import Message from './message.model';
+import UserOnlineStatus from './userOnlineStatus.model';
 
 // Define all model associations
 export function setupAssociations() {
@@ -40,4 +43,18 @@ export function setupAssociations() {
   // NotificationReadStatus associations
   NotificationReadStatus.belongsTo(User, { foreignKey: 'userId', as: 'user' });
   User.hasMany(NotificationReadStatus, { foreignKey: 'userId', as: 'notificationReadStatuses' });
+
+  // Chat system associations
+  Conversation.belongsTo(User, { foreignKey: 'user1Id', as: 'user1' });
+  Conversation.belongsTo(User, { foreignKey: 'user2Id', as: 'user2' });
+  User.hasMany(Conversation, { foreignKey: 'user1Id', as: 'conversationsAsUser1' });
+  User.hasMany(Conversation, { foreignKey: 'user2Id', as: 'conversationsAsUser2' });
+
+  Message.belongsTo(Conversation, { foreignKey: 'conversationId', as: 'conversation' });
+  Message.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
+  Conversation.hasMany(Message, { foreignKey: 'conversationId', as: 'messages' });
+  User.hasMany(Message, { foreignKey: 'senderId', as: 'sentMessages' });
+
+  UserOnlineStatus.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+  User.hasOne(UserOnlineStatus, { foreignKey: 'userId', as: 'onlineStatus' });
 } 
