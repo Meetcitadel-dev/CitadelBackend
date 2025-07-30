@@ -727,6 +727,34 @@ const getConnectionStatus = async (req: Request, res: Response): Promise<void> =
     }
   };
 
+// Get connections count for the authenticated user
+const getConnectionsCount = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const currentUserId = (req as any).user.id;
+
+    // Count all connections where status is 'connected' and user is either userId1 or userId2
+    const connectionsCount = await Connection.count({
+      where: {
+        status: 'connected',
+        [Op.or]: [
+          { userId1: currentUserId },
+          { userId2: currentUserId }
+        ]
+      }
+    });
+
+    res.json({
+      success: true,
+      connectionsCount,
+      message: 'Connections count retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error getting connections count:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 export default {
   getExploreProfiles,
   manageConnection,
@@ -734,5 +762,6 @@ export default {
   getAdjectiveMatches,
   getConnectionStatus,
   trackProfileView,
-  checkAdjectiveSelection
+  checkAdjectiveSelection,
+  getConnectionsCount
 }; 

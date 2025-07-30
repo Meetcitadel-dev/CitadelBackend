@@ -13,4 +13,7 @@ router.post('/manage', exploreController.manageConnection);
 // GET /api/v1/connections/status/:targetUserId - Get connection status with specific user
 router.get('/status/:targetUserId', exploreController.getConnectionStatus);
 
+// GET /api/v1/connections/count - Get connections count for authenticated user
+router.get('/count', exploreController.getConnectionsCount);
+
 export default router; 
