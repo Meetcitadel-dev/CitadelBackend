@@ -7,6 +7,7 @@ import Conversation from '../models/conversation.model';
 import Message from '../models/message.model';
 import UserOnlineStatus from '../models/userOnlineStatus.model';
 import websocketService from '../services/websocket.service';
+import UserImage from '../models/userImage.model';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -480,6 +481,78 @@ class ChatController {
       res.status(500).json({
         success: false,
         message: 'Failed to get conversation'
+      });
+    }
+  }
+
+  // Get conversation details by conversation ID
+  async getConversationDetails(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!.id;
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Conversation ID is required'
+        });
+      }
+
+      // Find the conversation and verify user has access
+      const conversation = await Conversation.findOne({
+        where: {
+          id: conversationId,
+          [Op.or]: [
+            { user1Id: userId },
+            { user2Id: userId }
+          ]
+        }
+      });
+
+      if (!conversation) {
+        return res.status(404).json({
+          success: false,
+          message: 'Conversation not found'
+        });
+      }
+
+      // Get the other user's ID
+      const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+
+      // Get the other user's details
+      const otherUser = await User.findByPk(otherUserId, {
+        attributes: ['id', 'name', 'username'],
+        include: [
+          {
+            model: UserImage,
+            as: 'images',
+            attributes: ['cloudfrontUrl'],
+            required: false
+          }
+        ]
+      });
+
+      if (!otherUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        conversation: {
+          id: conversation.id,
+          userId: otherUser.id,
+          name: otherUser.name || otherUser.username || 'Unknown User',
+          profileImage: (otherUser as any).images?.[0]?.cloudfrontUrl || null
+        }
+      });
+    } catch (error) {
+      console.error('Error getting conversation details:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get conversation details'
       });
     }
   }

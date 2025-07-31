@@ -25,4 +25,7 @@ router.post('/:conversationId/read', chatController.markAsRead);
 // GET /api/v1/chats/conversation/{userId} - Get or create conversation by user ID
 router.get('/conversation/:targetUserId', chatController.getConversationByUserId);
 
+// GET /api/v1/chats/conversation/details/{conversationId} - Get conversation details by conversation ID
+router.get('/conversation/details/:conversationId', chatController.getConversationDetails);
+
 export default router; 
