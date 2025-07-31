@@ -1,7 +1,7 @@
 import redisClient from '../config/redis';
 
 const OTP_TTL = 300; // 5 minutes (OTP code validity)
-const OTP_ATTEMPT_LIMIT = 20;
+const OTP_ATTEMPT_LIMIT = 100; // Increased from 20 to 100 for testing
 const OTP_ATTEMPT_WINDOW = 60 * 60 * 5; // 5 hours in seconds
 const OTP_RATE_LIMIT = 60; // 1 minute (rate limit between requests)
 

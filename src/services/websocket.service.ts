@@ -41,16 +41,23 @@ class WebSocketService {
       try {
         const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
         
+        console.log('🔐 WebSocket auth - Token received:', !!token);
+        
         if (!token) {
+          console.log('❌ WebSocket auth - No token provided');
           return next(new Error('Authentication error'));
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-        (socket as any).userId = decoded.id;
+        console.log('🔐 WebSocket auth - Decoded token:', { sub: decoded.sub, email: decoded.email });
+        
+        (socket as any).userId = decoded.sub; // Use 'sub' instead of 'id' as per JWT token structure
         (socket as any).userEmail = decoded.email;
         
+        console.log('✅ WebSocket auth - Authentication successful');
         next();
       } catch (error) {
+        console.error('❌ WebSocket auth - Authentication failed:', error);
         next(new Error('Authentication error'));
       }
     });
@@ -84,6 +91,7 @@ class WebSocketService {
 
     // Handle new message
     socket.on('send_message', async (data: MessageData) => {
+      console.log('📤 WebSocket - Received send_message event:', data);
       await this.handleNewMessage(socket, data);
     });
 
@@ -128,6 +136,8 @@ class WebSocketService {
       const { conversationId, message } = data;
       const senderId = socket.userId;
 
+      console.log(`📤 WebSocket - Processing message from user ${senderId} in conversation ${conversationId}`);
+
       // Verify user has access to this conversation
       const conversation = await Conversation.findOne({
         where: {
@@ -139,21 +149,27 @@ class WebSocketService {
         }
       });
 
+      console.log(`🔍 WebSocket - Conversation lookup result:`, conversation ? 'Found' : 'Not found');
+
       if (!conversation) {
+        console.log(`❌ WebSocket - Conversation not found for user ${senderId}`);
         socket.emit('error', { message: 'Conversation not found' });
         return;
       }
 
       // Create the message
+      console.log(`💾 WebSocket - Creating message in database...`);
       const newMessage = await Message.create({
         conversationId,
         senderId,
         text: message,
         status: 'sent'
       });
+      console.log(`✅ WebSocket - Message created with ID: ${newMessage.id}`);
 
       // Get the other user in the conversation
       const otherUserId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
+      console.log(`👥 WebSocket - Other user in conversation: ${otherUserId}`);
 
       // Emit to sender
       socket.emit('message_sent', {
@@ -306,8 +322,12 @@ class WebSocketService {
   // Public method to emit events
   public emitToUser(userId: number, event: string, data: any) {
     const socketId = this.userSockets.get(userId);
+    console.log(`📡 WebSocket - Emitting ${event} to user ${userId}, socketId: ${socketId}`);
     if (socketId && this.io) {
       this.io.to(socketId).emit(event, data);
+      console.log(`✅ WebSocket - Event ${event} emitted successfully`);
+    } else {
+      console.log(`❌ WebSocket - User ${userId} not online or socket not found`);
     }
   }
 

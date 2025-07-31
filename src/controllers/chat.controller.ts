@@ -331,7 +331,9 @@ class ChatController {
       const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
 
       // Emit real-time message to recipient if online
+      console.log(`📡 Chat Controller - Checking if user ${otherUserId} is online...`);
       if (websocketService.isUserOnline(otherUserId)) {
+        console.log(`✅ Chat Controller - User ${otherUserId} is online, emitting new_message`);
         websocketService.emitToUser(otherUserId, 'new_message', {
           conversationId,
           message: {
@@ -342,6 +344,8 @@ class ChatController {
             status: newMessage.status
           }
         });
+      } else {
+        console.log(`❌ Chat Controller - User ${otherUserId} is not online`);
       }
 
       res.json({

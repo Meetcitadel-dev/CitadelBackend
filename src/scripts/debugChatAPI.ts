@@ -1,11 +1,10 @@
 import sequelize from '../config/db';
 import { Op } from 'sequelize';
 import User from '../models/user.model';
-import Connection from '../models/connection.model';
 import Conversation from '../models/conversation.model';
 import Message from '../models/message.model';
-import UserOnlineStatus from '../models/userOnlineStatus.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
+import Connection from '../models/connection.model';
 import { setupAssociations } from '../models/associations';
 
 async function debugChatAPI() {
@@ -17,52 +16,136 @@ async function debugChatAPI() {
     await sequelize.authenticate();
     console.log('✅ Database connection successful');
 
-    const userId = 15; // Ankit's ID
-    console.log(`🔍 Debugging for user ID: ${userId}`);
+    const userId = 30; // Test user ID
 
-    // Check if user exists
+    console.log('\n🔍 [DEBUG] Testing Chat API for user ID:', userId);
+
+    // 1. Check if user exists
     const user = await User.findByPk(userId);
     if (!user) {
       console.log('❌ User not found');
       return;
     }
-    console.log(`✅ User found: ${user.name}`);
+    console.log('✅ User found:', user.name);
 
-    // Check connections
-    console.log('\n🔗 Checking connections...');
-    const connections = await Connection.findAll({
-      where: {
-        [Op.or]: [
-          { userId1: userId },
-          { userId2: userId }
-        ]
-      }
-    });
-
-    console.log(`Found ${connections.length} connections:`);
-    connections.forEach(conn => {
-      console.log(`- ID: ${conn.id}, User1: ${conn.userId1}, User2: ${conn.userId2}, Status: ${conn.status}`);
-    });
-
-    // Check adjective matches
-    console.log('\n💕 Checking adjective matches...');
+    // 2. Check adjective matches
     const matches = await AdjectiveMatch.findAll({
       where: {
         [Op.or]: [
           { userId1: userId },
           { userId2: userId }
         ]
+      },
+      include: [
+        {
+          model: User,
+          as: 'user1',
+          attributes: ['id', 'name', 'username']
+        },
+        {
+          model: User,
+          as: 'user2',
+          attributes: ['id', 'name', 'username']
+        }
+      ]
+    });
+
+    console.log(`\n💕 [DEBUG] Found ${matches.length} adjective matches:`);
+    for (const match of matches) {
+      const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
+      const otherUser = await User.findByPk(otherUserId);
+      console.log(`  - ${otherUser?.name} (ID: ${otherUserId})`);
+    }
+
+    // 3. Check conversations for each match
+    console.log('\n💬 [DEBUG] Checking conversations for matches:');
+    for (const match of matches) {
+      const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
+      const otherUser = await User.findByPk(otherUserId);
+      
+      const conversation = await Conversation.findOne({
+        where: {
+          [Op.or]: [
+            { user1Id: userId, user2Id: otherUserId },
+            { user1Id: otherUserId, user2Id: userId }
+          ]
+        }
+      });
+
+      if (conversation) {
+        console.log(`  ✅ Conversation found for ${otherUser?.name}: ${conversation.id}`);
+        
+        // Check messages
+        const messageCount = await Message.count({
+          where: { conversationId: conversation.id }
+        });
+        console.log(`    📝 Messages in conversation: ${messageCount}`);
+      } else {
+        console.log(`  ❌ No conversation found for ${otherUser?.name}`);
       }
+    }
+
+    // 4. Check connections
+    const connections = await Connection.findAll({
+      where: {
+        [Op.or]: [
+          { userId1: userId },
+          { userId2: userId }
+        ],
+        status: 'connected'
+      },
+      include: [
+        {
+          model: User,
+          as: 'user1',
+          attributes: ['id', 'name', 'username']
+        },
+        {
+          model: User,
+          as: 'user2',
+          attributes: ['id', 'name', 'username']
+        }
+      ]
     });
 
-    console.log(`Found ${matches.length} matches:`);
-    matches.forEach(match => {
-      console.log(`- ID: ${match.id}, User1: ${match.userId1}, User2: ${match.userId2}, Adjective: ${match.adjective}, Matched: ${match.matched}`);
-    });
+    console.log(`\n🔗 [DEBUG] Found ${connections.length} connections:`);
+    for (const connection of connections) {
+      const otherUserId = connection.userId1 === userId ? connection.userId2 : connection.userId1;
+      const otherUser = await User.findByPk(otherUserId);
+      console.log(`  - ${otherUser?.name} (ID: ${otherUserId})`);
+    }
 
-    // Check conversations
-    console.log('\n💬 Checking conversations...');
-    const conversations = await Conversation.findAll({
+    // 5. Check conversations for connections
+    console.log('\n💬 [DEBUG] Checking conversations for connections:');
+    for (const connection of connections) {
+      const otherUserId = connection.userId1 === userId ? connection.userId2 : connection.userId1;
+      const otherUser = await User.findByPk(otherUserId);
+      
+      const conversation = await Conversation.findOne({
+        where: {
+          [Op.or]: [
+            { user1Id: userId, user2Id: otherUserId },
+            { user1Id: otherUserId, user2Id: userId }
+          ]
+        }
+      });
+
+      if (conversation) {
+        console.log(`  ✅ Conversation found for ${otherUser?.name}: ${conversation.id}`);
+        
+        // Check messages
+        const messageCount = await Message.count({
+          where: { conversationId: conversation.id }
+        });
+        console.log(`    📝 Messages in conversation: ${messageCount}`);
+      } else {
+        console.log(`  ❌ No conversation found for ${otherUser?.name}`);
+      }
+    }
+
+    // 6. List all conversations for this user
+    console.log('\n📋 [DEBUG] All conversations for this user:');
+    const allConversations = await Conversation.findAll({
       where: {
         [Op.or]: [
           { user1Id: userId },
@@ -71,44 +154,12 @@ async function debugChatAPI() {
       }
     });
 
-    console.log(`Found ${conversations.length} conversations:`);
-    conversations.forEach(conv => {
-      console.log(`- ID: ${conv.id}, User1: ${conv.user1Id}, User2: ${conv.user2Id}`);
-    });
-
-    // Check messages
-    console.log('\n📝 Checking messages...');
-    const messages = await Message.findAll({
-      include: [
-        {
-          model: Conversation,
-          where: {
-            [Op.or]: [
-              { user1Id: userId },
-              { user2Id: userId }
-            ]
-          }
-        }
-      ]
-    });
-
-    console.log(`Found ${messages.length} messages:`);
-    messages.forEach(msg => {
-      console.log(`- ID: ${msg.id}, Text: ${msg.text.substring(0, 50)}..., Sender: ${msg.senderId}, Conversation: ${msg.conversationId}`);
-    });
-
-    // Check online status
-    console.log('\n🟢 Checking online status...');
-    const onlineStatuses = await UserOnlineStatus.findAll({
-      where: { isOnline: true }
-    });
-
-    console.log(`Found ${onlineStatuses.length} online users:`);
-    onlineStatuses.forEach(status => {
-      console.log(`- User ID: ${status.userId}, Online: ${status.isOnline}, Last seen: ${status.lastSeen}`);
-    });
-
-    console.log('\n✅ Debug complete!');
+    console.log(`Found ${allConversations.length} total conversations:`);
+    for (const conv of allConversations) {
+      const otherUserId = conv.user1Id === userId ? conv.user2Id : conv.user1Id;
+      const otherUser = await User.findByPk(otherUserId);
+      console.log(`  - Conversation ${conv.id} with ${otherUser?.name} (ID: ${otherUserId})`);
+    }
 
   } catch (error) {
     console.error('❌ Error debugging chat API:', error);

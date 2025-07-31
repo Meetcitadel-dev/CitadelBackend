@@ -9,7 +9,8 @@
     "build": "tsc",
     "get-simple-data": "ts-node src/scripts/simpleData.ts",
     "delete-users": "ts-node src/scripts/deleteUsers.ts",
-    "reset-auto-increment": "ts-node src/scripts/resetAutoIncrement.ts"
+    "reset-auto-increment": "ts-node src/scripts/resetAutoIncrement.ts",
+    "test-payment": "ts-node src/scripts/testPaymentIntegration.ts"
   },
   "keywords": [],
   "author": "",
@@ -35,7 +36,8 @@
     "razorpay": "^2.9.6",
     "redis": "^5.6.0",
     "sequelize": "^6.37.7",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
