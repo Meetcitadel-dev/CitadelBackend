@@ -114,8 +114,8 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       }
     }
 
-    // Get friends count for the target user
-    const friendsCount = await Connection.count({
+    // Get connections count for the target user
+    const connectionsCount = await Connection.count({
       where: {
         [Op.or]: [
           { userId1: user.id, status: 'connected' },
@@ -124,8 +124,8 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       }
     });
 
-    // Get mutual friends count if not own profile
-    let mutualFriendsCount = 0;
+    // Get mutual connections count if not own profile
+    let mutualConnectionsCount = 0;
     if (!isOwnProfile) {
       const currentUserConnections = await Connection.findAll({
         where: {
@@ -145,21 +145,54 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
         }
       });
 
-      const currentUserFriendIds = currentUserConnections.map(conn => 
+      const currentUserConnectionIds = currentUserConnections.map(conn => 
         conn.userId1 === currentUserId ? conn.userId2 : conn.userId1
       );
 
-      const targetUserFriendIds = targetUserConnections.map(conn => 
+      const targetUserConnectionIds = targetUserConnections.map(conn => 
         conn.userId1 === user.id ? conn.userId2 : conn.userId1
       );
 
       // Find intersection
-      const mutualFriendIds = currentUserFriendIds.filter(id => 
-        targetUserFriendIds.includes(id)
+      const mutualConnectionIds = currentUserConnectionIds.filter(id => 
+        targetUserConnectionIds.includes(id)
       );
 
-      mutualFriendsCount = mutualFriendIds.length;
+      mutualConnectionsCount = mutualConnectionIds.length;
     }
+
+    // Get actual connections for the target user
+    const userConnections = await Connection.findAll({
+      where: {
+        [Op.or]: [
+          { userId1: user.id, status: 'connected' },
+          { userId2: user.id, status: 'connected' }
+        ]
+      },
+      include: [
+        {
+          model: User,
+          as: 'user1',
+          attributes: ['id', 'name', 'username']
+        },
+        {
+          model: User,
+          as: 'user2',
+          attributes: ['id', 'name', 'username']
+        }
+      ]
+    });
+
+    // Format connections data
+    const connections = userConnections.map(conn => {
+      const isUser1 = conn.userId1 === user.id;
+      const connectedUser = isUser1 ? conn.userId2 : conn.userId1;
+      const connectedUserData = isUser1 ? (conn as any).user2 : (conn as any).user1;
+      return {
+        id: connectedUser,
+        name: connectedUserData?.name || 'Unknown User'
+      };
+    });
 
     // Prepare profile data
     const profileData = {
@@ -185,9 +218,9 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       teams: user.teams,
       portfolioLink: user.portfolioLink,
       phoneNumber: isOwnProfile ? user.phoneNumber : undefined, // Hide phone for other users
-      friends: Array.isArray(user.friends) ? user.friends : [],
-      friendsCount,
-      mutualFriendsCount,
+      connections: connections,
+      connectionsCount,
+      mutualConnectionsCount,
       isProfileComplete: user.isProfileComplete,
       isEmailVerified: isOwnProfile ? user.isEmailVerified : undefined,
       images: imagesWithFreshUrls,
@@ -298,9 +331,9 @@ export const getMutualFriends = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: 'Mutual friends retrieved successfully',
+      message: 'Mutual connections retrieved successfully',
       data: {
-        mutualFriends: formattedMutualFriends,
+        mutualConnections: formattedMutualFriends,
         totalCount: formattedMutualFriends.length
       }
     });
