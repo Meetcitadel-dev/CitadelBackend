@@ -8,7 +8,7 @@ import websocketService from './services/websocket.service';
 // Setup model associations
 setupAssociations();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Create HTTP server
 const server = createServer(app);

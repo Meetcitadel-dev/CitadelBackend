@@ -15,6 +15,18 @@ const ADJECTIVES = [
   'Genuine', 'Energetic', 'Calm', 'Inspiring', 'Curious', 'Intelligent'
 ];
 
+// Year mapping from frontend to database values
+const YEAR_MAPPING: { [key: string]: string } = {
+  'First': '1st',
+  'Second': '2nd', 
+  'Third': '3rd',
+  'Fourth': '4th',
+  '1st': '1st',
+  '2nd': '2nd',
+  '3rd': '3rd',
+  '4th': '4th'
+};
+
 // Matching criteria weights
 const MATCHING_CRITERIA = {
   collegeWeight: 0.4,
@@ -106,12 +118,28 @@ const getSelectedAdjectives = async (userId1: number, userId2: number): Promise<
 // Fetch explore profiles with matching algorithm
 const getExploreProfiles = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { limit = 10, offset = 0 } = req.query;
+      const { 
+        limit = 20, 
+        offset = 0, 
+        search = '', 
+        sortBy = 'match_score',
+        gender = '',
+        years = [],
+        universities = [],
+        skills = []
+      } = req.query;
+      
       const currentUserId = (req as any).user.id;
 
-      console.log('🔍 EXPLORE PROFILES DEBUG:');
+      console.log('🔍 ENHANCED EXPLORE PROFILES DEBUG:');
       console.log(`   Current User ID: ${currentUserId}`);
       console.log(`   Limit: ${limit}, Offset: ${offset}`);
+      console.log(`   Search: ${search}`);
+      console.log(`   SortBy: ${sortBy}`);
+      console.log(`   Gender: ${gender}`);
+      console.log(`   Years: ${years}`);
+      console.log(`   Universities: ${universities}`);
+      console.log(`   Skills: ${skills}`);
 
       // Get current user with university info
       const currentUser = await User.findByPk(currentUserId, {
@@ -142,29 +170,76 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
 
       console.log(`   Blocked User IDs: ${blockedUserIds}`);
 
-      // Get interacted users (for filtering)
-      const previousInteractions = await Interaction.findAll({
-        where: {
-          userId: currentUserId,
-          interactionType: {
-            [Op.in]: ['viewed', 'connected', 'adjective_selected', 'blocked']
-          }
+      // Build where clause for user filtering
+      const whereClause: any = {
+        id: {
+          [Op.ne]: currentUserId,
+          [Op.notIn]: blockedUserIds
         },
-        attributes: ['targetUserId']
-      });
+        isProfileComplete: true
+      };
 
-      const interactedUserIds = previousInteractions.map(interaction => interaction.targetUserId);
-      console.log(`   Interacted User IDs: ${interactedUserIds}`);
+      // Add search filter
+      if (search && typeof search === 'string' && search.trim()) {
+        whereClause[Op.or] = [
+          { name: { [Op.iLike]: `%${search.trim()}%` } }
+        ];
+      }
 
-      // Get all available users (excluding current user and blocked users)
+      // Add gender filter
+      if (gender && typeof gender === 'string' && gender.trim()) {
+        whereClause.gender = { [Op.iLike]: gender.trim() };
+      }
+
+      // Add years filter
+      if (years) {
+        let yearsArray = years;
+        if (typeof years === 'string') {
+          yearsArray = [years];
+        } else if (Array.isArray(years)) {
+          yearsArray = years;
+        }
+        
+        if (yearsArray.length > 0) {
+          // Map frontend year values to database values
+          const mappedYears = yearsArray.map(year => YEAR_MAPPING[year] || year);
+          whereClause.year = { [Op.in]: mappedYears };
+        }
+      }
+
+      // Add universities filter
+      if (universities) {
+        let universitiesArray = universities;
+        if (typeof universities === 'string') {
+          universitiesArray = [universities];
+        } else if (Array.isArray(universities)) {
+          universitiesArray = universities;
+        }
+        
+        if (universitiesArray.length > 0) {
+          whereClause['$university.name$'] = { [Op.in]: universitiesArray };
+        }
+      }
+
+      // Add skills filter
+      if (skills) {
+        let skillsArray = skills;
+        if (typeof skills === 'string') {
+          skillsArray = [skills];
+        } else if (Array.isArray(skills)) {
+          skillsArray = skills;
+        }
+        
+        if (skillsArray.length > 0) {
+          whereClause.skills = { [Op.overlap]: skillsArray };
+        }
+      }
+
+      console.log(`   Where clause:`, JSON.stringify(whereClause, null, 2));
+
+      // Get all available users with filters and view count
       let users = await User.findAll({
-        where: {
-          id: {
-            [Op.ne]: currentUserId,
-            [Op.notIn]: [...blockedUserIds, ...interactedUserIds]
-          },
-          isProfileComplete: true
-        },
+        where: whereClause,
         include: [
           {
             model: University,
@@ -177,46 +252,32 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
             required: false
           }
         ],
+
         limit: Number(limit),
-        order: [['createdAt', 'DESC']]
+        offset: Number(offset),
+        order: getSortOrder(sortBy as string)
       });
 
-      console.log(`   New users found: ${users.length}`);
-
-      // If not enough new users, get previously viewed users (allow repetition)
-      let additionalUsers: any[] = [];
-      if (users.length < Number(limit)) {
-        const remainingLimit = Number(limit) - users.length;
-        console.log(`   Getting ${remainingLimit} additional users...`);
+      // If there's a search term, also search by university name
+      if (search && typeof search === 'string' && search.trim()) {
+        const searchTerm = search.trim();
         
-        // Get recently interacted users for fallback
-        const recentlyInteracted = await Interaction.findAll({
-          where: {
-            userId: currentUserId,
-            interactionType: {
-              [Op.in]: ['viewed', 'connected', 'adjective_selected', 'blocked']
-            }
-          },
-          order: [['timestamp', 'DESC']],
-          limit: 20 // Get more to have variety
-        });
-
-        const recentlyInteractedIds = recentlyInteracted.map(interaction => interaction.targetUserId);
-        console.log(`   Recently interacted IDs: ${recentlyInteractedIds}`);
-
-        additionalUsers = await User.findAll({
+        // Get users by university name
+        const usersByUniversity = await User.findAll({
           where: {
             id: {
               [Op.ne]: currentUserId,
-              [Op.notIn]: blockedUserIds, // Don't exclude interacted users here - allow repetition
-              [Op.in]: recentlyInteractedIds // Only show previously interacted users
+              [Op.notIn]: blockedUserIds
             },
             isProfileComplete: true
           },
           include: [
             {
               model: University,
-              as: 'university'
+              as: 'university',
+              where: {
+                name: { [Op.iLike]: `%${searchTerm}%` }
+              }
             },
             {
               model: UserImage,
@@ -225,19 +286,24 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
               required: false
             }
           ],
-          limit: remainingLimit,
-          order: [['createdAt', 'DESC']]
+          limit: Number(limit),
+          offset: Number(offset),
+          order: getSortOrder(sortBy as string)
         });
 
-        console.log(`   Additional users found: ${additionalUsers.length}`);
+        // Combine and deduplicate results
+        const allUsers = [...users, ...usersByUniversity];
+        const uniqueUsers = allUsers.filter((user, index, self) => 
+          index === self.findIndex(u => u.id === user.id)
+        );
+        users = uniqueUsers.slice(0, Number(limit));
       }
 
-      const allUsers = [...users, ...additionalUsers];
-      console.log(`   Total users to return: ${allUsers.length}`);
+      console.log(`   Users found: ${users.length}`);
 
       // Process each user to add match score and connection state
       const profiles = await Promise.all(
-        allUsers.map(async (user) => {
+        users.map(async (user) => {
           const matchScore = calculateMatchScore(currentUser, user);
           const connectionState = await getConnectionState(currentUserId, user.id);
           const selectedAdjectives = await getSelectedAdjectives(currentUserId, user.id);
@@ -258,6 +324,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
             university: (user as any).university,
             degree: user.degree,
             year: user.year,
+            gender: user.gender,
             skills: user.skills || [],
             profileImage,
             uploadedImages,
@@ -275,22 +342,30 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         })
       );
 
-      // Sort by match score (highest first)
-      profiles.sort((a, b) => b.matchScore - a.matchScore);
-
-      // Return only the requested limit
-      const result = profiles.slice(0, Number(limit));
-
-      console.log(`   Final profiles to return: ${result.length}`);
-      result.forEach((profile, index) => {
-        console.log(`     ${index + 1}. ${profile.name} (ID: ${profile.id})`);
+      // Get total count for pagination
+      const totalCount = await User.count({
+        where: whereClause,
+        include: [
+          {
+            model: University,
+            as: 'university'
+          }
+        ]
       });
+
+      // Get available filters for frontend
+      const availableFilters = await getAvailableFiltersHelper();
+
+      console.log(`   Final profiles to return: ${profiles.length}`);
+      console.log(`   Total count: ${totalCount}`);
+      console.log(`   Has more: ${profiles.length >= Number(limit)}`);
 
       res.json({
         success: true,
-        profiles: result,
-        hasMore: profiles.length > Number(limit),
-        totalCount: profiles.length
+        profiles,
+        hasMore: profiles.length >= Number(limit),
+        totalCount,
+        filters: availableFilters
       });
 
     } catch (error) {
@@ -298,6 +373,88 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
+
+// Helper function to get sort order
+const getSortOrder = (sortBy: string): any[] => {
+  switch (sortBy) {
+    case 'year_asc':
+      return [['year', 'ASC']];
+    case 'year_desc':
+      return [['year', 'DESC']];
+    case 'name_asc':
+      return [['name', 'ASC']];
+    case 'name_desc':
+      return [['name', 'DESC']];
+    case 'match_score':
+      return [['createdAt', 'DESC']]; // Default sort by creation date
+    default:
+      return [['createdAt', 'DESC']];
+  }
+};
+
+// Get available filters for grid view
+const getAvailableFilters = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filters = await getAvailableFiltersHelper();
+    
+    res.json({
+      success: true,
+      filters
+    });
+  } catch (error) {
+    console.error('Error getting available filters:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Helper function to get available filters
+const getAvailableFiltersHelper = async (): Promise<any> => {
+  try {
+    // Get available universities
+    const universities = await University.findAll({
+      attributes: ['name'],
+      order: [['name', 'ASC']]
+    });
+
+    // Get available skills (from all users)
+    const usersWithSkills = await User.findAll({
+      where: {
+        skills: { [Op.ne]: null as any }
+      },
+      attributes: ['skills']
+    });
+
+    const allSkills = new Set<string>();
+    usersWithSkills.forEach(user => {
+      if (user.skills && Array.isArray(user.skills)) {
+        user.skills.forEach((skill: string) => allSkills.add(skill));
+      }
+    });
+
+    // Get available years
+    const years = await User.findAll({
+      where: {
+        year: { [Op.ne]: null as any }
+      },
+      attributes: ['year'],
+      group: ['year'],
+      order: [['year', 'ASC']]
+    });
+
+    return {
+      availableUniversities: universities.map(u => u.name),
+      availableSkills: Array.from(allSkills).sort(),
+      availableYears: years.map(y => y.year).filter(Boolean)
+    };
+  } catch (error) {
+    console.error('Error getting available filters:', error);
+    return {
+      availableUniversities: [],
+      availableSkills: [],
+      availableYears: []
+    };
+  }
+};
 
 // Manage connection requests
 const manageConnection = async (req: Request, res: Response): Promise<void> => {
@@ -464,7 +621,16 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
       res.json({
         success: true,
         message,
-        connectionState
+        connectionState: connectionState ? {
+          id: connectionState.id,
+          userId1: (connectionState as any).userId1,
+          userId2: (connectionState as any).userId2,
+          requesterId: (connectionState as any).requesterId || (connectionState as any).userId1,
+          targetId: (connectionState as any).targetId || (connectionState as any).userId2,
+          status: connectionState.status,
+          createdAt: connectionState.createdAt,
+          updatedAt: connectionState.updatedAt
+        } : null
       });
 
     } catch (error) {
@@ -763,5 +929,6 @@ export default {
   getConnectionStatus,
   trackProfileView,
   checkAdjectiveSelection,
-  getConnectionsCount
+  getConnectionsCount,
+  getAvailableFilters
 }; 

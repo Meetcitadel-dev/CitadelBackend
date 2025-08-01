@@ -10,6 +10,9 @@ router.use(authenticateToken);
 // GET /api/v1/explore/profiles - Fetch explore profiles with matching algorithm
 router.get('/profiles', exploreController.getExploreProfiles);
 
+// GET /api/v1/explore/filters - Get available filters for grid view
+router.get('/filters', exploreController.getAvailableFilters);
+
 // POST /api/v1/explore/adjectives/select - Select adjective for a profile
 router.post('/adjectives/select', exploreController.selectAdjective);
 

@@ -24,6 +24,11 @@ app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 // Connect to MongoDB
 connectMongoDB();
 
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({ success: true, message: 'Server is working!' });
+});
+
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/profile', profileRoutes);
 app.use('/api/profile', profileRoutes); // Add alias for backward compatibility
