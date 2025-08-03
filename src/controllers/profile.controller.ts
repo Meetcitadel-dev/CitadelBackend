@@ -2,7 +2,16 @@ import { Request, Response } from 'express';
 import User from '../models/user.model';
 import UserImage from '../models/userImage.model';
 import University from '../models/university.model';
+import Connection from '../models/connection.model';
+import ConnectionRequest from '../models/connectionRequest.model';
+import Conversation from '../models/conversation.model';
+import Message from '../models/message.model';
+import Interaction from '../models/interaction.model';
+import AdjectiveMatch from '../models/adjectiveMatch.model';
+import NotificationReadStatus from '../models/notificationReadStatus.model';
+import UserOnlineStatus from '../models/userOnlineStatus.model';
 import { uploadImage, generateS3Key, generateCloudFrontSignedUrl, generateS3SignedUrl, deleteImage } from '../services/s3.service';
+import { Op } from 'sequelize';
 
 export const uploadUserImage = async (req: Request, res: Response) => {
   try {
@@ -551,6 +560,139 @@ export const updateProfile = async (req: Request, res: Response) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to update profile' 
+    });
+  }
+};
+
+// Delete account functionality
+export const deleteAccount = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'User not authenticated' 
+      });
+    }
+
+    // Find the user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    console.log(`🗑️  Starting account deletion for user ${userId} (${user.email})`);
+
+    // 1. Delete all user images from S3 and database
+    const userImages = await UserImage.findAll({ where: { userId } });
+    console.log(`📸 Deleting ${userImages.length} user images`);
+    
+    for (const image of userImages) {
+      try {
+        await deleteImage(image.s3Key);
+        console.log(`✅ Deleted image from S3: ${image.s3Key}`);
+      } catch (error) {
+        console.warn(`⚠️  Failed to delete image from S3: ${image.s3Key}`, error);
+      }
+    }
+    await UserImage.destroy({ where: { userId } });
+
+    // 2. Delete all connections where user is involved
+    console.log('🔗 Deleting user connections');
+    await Connection.destroy({
+      where: {
+        [Op.or]: [
+          { userId1: userId },
+          { userId2: userId }
+        ]
+      }
+    });
+
+    // 3. Delete all connection requests where user is involved
+    console.log('📨 Deleting connection requests');
+    await ConnectionRequest.destroy({
+      where: {
+        [Op.or]: [
+          { requesterId: userId },
+          { targetId: userId }
+        ]
+      }
+    });
+
+    // 4. Delete all conversations where user is involved
+    console.log('💬 Deleting conversations');
+    const userConversations = await Conversation.findAll({
+      where: {
+        [Op.or]: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
+      }
+    });
+    
+    for (const conversation of userConversations) {
+      // Delete all messages in the conversation
+      await Message.destroy({ where: { conversationId: conversation.id } });
+    }
+    await Conversation.destroy({
+      where: {
+        [Op.or]: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
+      }
+    });
+
+    // 5. Delete all interactions where user is involved
+    console.log('👁️  Deleting user interactions');
+    await Interaction.destroy({
+      where: {
+        [Op.or]: [
+          { userId: userId },
+          { targetUserId: userId }
+        ]
+      }
+    });
+
+    // 6. Delete all adjective matches where user is involved
+    console.log('🎯 Deleting adjective matches');
+    await AdjectiveMatch.destroy({
+      where: {
+        [Op.or]: [
+          { userId1: userId },
+          { userId2: userId }
+        ]
+      }
+    });
+
+    // 7. Delete notification read status
+    console.log('🔔 Deleting notification read status');
+    await NotificationReadStatus.destroy({ where: { userId } });
+
+    // 8. Delete user online status
+    console.log('🟢 Deleting user online status');
+    await UserOnlineStatus.destroy({ where: { userId } });
+
+    // 9. Finally, delete the user account
+    console.log('👤 Deleting user account');
+    await user.destroy();
+
+    console.log(`✅ Account deletion completed for user ${userId}`);
+
+    return res.json({
+      success: true,
+      message: 'Account deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting account:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to delete account' 
     });
   }
 };

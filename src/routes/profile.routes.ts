@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { uploadUserImage, getUserImages, deleteUserImage, getSignedUrl, getMyProfile, testSignedUrl, updateProfile } from '../controllers/profile.controller';
+import { uploadUserImage, getUserImages, deleteUserImage, getSignedUrl, getMyProfile, testSignedUrl, updateProfile, deleteAccount } from '../controllers/profile.controller';
 import { uploadSingleImage, handleUploadError } from '../middlewares/upload.middleware';
 import { authenticateToken } from '../middlewares/auth.middleware';
 
@@ -28,6 +28,9 @@ router.get('/test-signed-url', testSignedUrl);
 
 // Update profile
 router.put('/update', updateProfile);
+
+// Delete account
+router.delete('/delete-account', deleteAccount);
 
 export default router;
 

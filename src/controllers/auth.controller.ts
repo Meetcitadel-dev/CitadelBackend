@@ -197,6 +197,28 @@ export const refreshTokenController = async (req: Request, res: Response) => {
   }
 };
 
+// Logout endpoint
+export const logoutController = async (req: Request, res: Response) => {
+  try {
+    // For now, we'll just return success since JWT tokens are stateless
+    // In a production environment, you might want to:
+    // 1. Add the token to a blacklist
+    // 2. Store blacklisted tokens in Redis
+    // 3. Check blacklist in authenticateToken middleware
+    
+    return res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Error during logout:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to logout' 
+    });
+  }
+};
+
 
 
 

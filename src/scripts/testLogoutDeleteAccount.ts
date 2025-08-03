@@ -1,0 +1,70 @@
+import axios from 'axios';
+
+const BASE_URL = 'http://localhost:3000/api/v1';
+
+async function testLogout() {
+  try {
+    // You'll need to replace these with actual test data
+    const token = 'YOUR_TEST_TOKEN_HERE';
+
+    console.log('🧪 Testing logout endpoint...');
+    
+    const response = await axios.post(`${BASE_URL}/auth/logout`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Response:', JSON.stringify(response.data, null, 2));
+    
+    if (response.data.success) {
+      console.log('✅ Logout endpoint is working!');
+    } else {
+      console.log('❌ Logout endpoint failed');
+    }
+
+  } catch (error) {
+    console.error('Error testing logout:', error.response?.data || error.message);
+  }
+}
+
+async function testDeleteAccount() {
+  try {
+    // You'll need to replace these with actual test data
+    const token = 'YOUR_TEST_TOKEN_HERE';
+
+    console.log('\n🧪 Testing delete account endpoint...');
+    
+    const response = await axios.delete(`${BASE_URL}/profile/delete-account`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Response:', JSON.stringify(response.data, null, 2));
+    
+    if (response.data.success) {
+      console.log('✅ Delete account endpoint is working!');
+      console.log('⚠️  WARNING: Account has been deleted!');
+    } else {
+      console.log('❌ Delete account endpoint failed');
+    }
+
+  } catch (error) {
+    console.error('Error testing delete account:', error.response?.data || error.message);
+  }
+}
+
+// Run tests
+async function runTests() {
+  console.log('🧪 Testing Logout and Delete Account Functionality\n');
+  
+  await testLogout();
+  await testDeleteAccount();
+  
+  console.log('\n✅ Tests completed!');
+}
+
+runTests().catch(console.error); 
