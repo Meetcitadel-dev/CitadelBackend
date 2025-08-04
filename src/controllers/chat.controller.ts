@@ -318,6 +318,7 @@ class ChatController {
         });
       }
 
+      // Create the message in database
       const newMessage = await Message.create({
         conversationId,
         senderId: userId,
@@ -347,6 +348,17 @@ class ChatController {
         });
       } else {
         console.log(`❌ Chat Controller - User ${otherUserId} is not online`);
+      }
+
+      // Emit confirmation to sender
+      if (websocketService.isUserOnline(userId)) {
+        websocketService.emitToUser(userId, 'message_sent', {
+          messageId: newMessage.id,
+          conversationId,
+          message: newMessage.text,
+          timestamp: newMessage.createdAt,
+          status: newMessage.status
+        });
       }
 
       res.json({

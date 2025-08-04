@@ -92,6 +92,7 @@ class WebSocketService {
     // Handle new message
     socket.on('send_message', async (data: MessageData) => {
       console.log('📤 WebSocket - Received send_message event:', data);
+      console.log('⚠️  Note: This event is for real-time communication only. Messages should be created via HTTP API.');
       await this.handleNewMessage(socket, data);
     });
 
@@ -157,46 +158,33 @@ class WebSocketService {
         return;
       }
 
-      // Create the message
-      console.log(`💾 WebSocket - Creating message in database...`);
-      const newMessage = await Message.create({
-        conversationId,
-        senderId,
-        text: message,
-        status: 'sent'
-      });
-      console.log(`✅ WebSocket - Message created with ID: ${newMessage.id}`);
-
       // Get the other user in the conversation
       const otherUserId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
       console.log(`👥 WebSocket - Other user in conversation: ${otherUserId}`);
 
-      // Emit to sender
+      // Emit to sender for confirmation (without creating database record)
       socket.emit('message_sent', {
-        messageId: newMessage.id,
         conversationId,
-        message: newMessage.text,
-        timestamp: newMessage.createdAt,
-        status: newMessage.status
+        message: message,
+        timestamp: new Date(),
+        status: 'sent'
       });
 
-      // Emit to recipient if online
+      // Emit to recipient if online (without creating database record)
       const recipientSocketId = this.userSockets.get(otherUserId);
       if (recipientSocketId) {
         this.io!.to(recipientSocketId).emit('new_message', {
           conversationId,
           message: {
-            id: newMessage.id,
-            text: newMessage.text,
-            senderId: newMessage.senderId,
-            timestamp: newMessage.createdAt,
-            status: newMessage.status
+            text: message,
+            senderId: senderId,
+            timestamp: new Date(),
+            status: 'sent'
           }
         });
       }
 
-      // Update conversation timestamp
-      await conversation.update({ updatedAt: new Date() });
+      console.log(`✅ WebSocket - Real-time message sent (no database record created)`);
 
     } catch (error) {
       console.error('Error handling new message:', error);
