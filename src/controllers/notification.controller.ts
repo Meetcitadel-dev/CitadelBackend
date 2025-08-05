@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import User from '../models/user.model';
 import ConnectionRequest from '../models/connectionRequest.model';
-import AdjectiveMatch from '../models/adjectiveMatch.model';
+import Match from '../models/match.model';
 import Connection from '../models/connection.model';
 import NotificationReadStatus from '../models/notificationReadStatus.model';
 import University from '../models/university.model';
@@ -58,7 +58,7 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
           include: [
             {
               model: University,
-              as: 'university'
+              as: 'userUniversity'
             }
           ]
         }
@@ -66,27 +66,36 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
       order: [['createdAt', 'DESC']]
     });
 
-    // Get adjective notifications (from AdjectiveMatch table)
-    const adjectiveMatches = await AdjectiveMatch.findAll({
+    // Get adjective notifications (from Match table)
+    const matches = await Match.findAll({
       where: {
-        userId2: userId // Get adjectives selected for the current user
+        [Op.or]: [
+          { userId1: userId },
+          { userId2: userId }
+        ]
       },
       include: [
         {
           model: User,
-          as: 'user1' // The user who selected the adjective
+          as: 'matchUser1',
+          attributes: ['id', 'name', 'username']
+        },
+        {
+          model: User,
+          as: 'matchUser2',
+          attributes: ['id', 'name', 'username']
         }
       ],
-      order: [['timestamp', 'DESC']]
+      order: [['matchTimestamp', 'DESC']]
     });
 
-    // Group adjective matches by adjective
-    const adjectiveGroups = new Map<string, any[]>();
-    adjectiveMatches.forEach(match => {
-      if (!adjectiveGroups.has(match.adjective)) {
-        adjectiveGroups.set(match.adjective, []);
+    // Group matches by mutual adjective
+    const matchGroups = new Map<string, any[]>();
+    matches.forEach(match => {
+      if (!matchGroups.has(match.mutualAdjective)) {
+        matchGroups.set(match.mutualAdjective, []);
       }
-      adjectiveGroups.get(match.adjective)!.push(match);
+      matchGroups.get(match.mutualAdjective)!.push(match);
     });
 
     // Format connection requests
@@ -101,21 +110,30 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
     }));
 
     // Format adjective notifications
-    const formattedAdjectiveNotifications = Array.from(adjectiveGroups.entries()).map(([adjective, matches]) => {
+    const formattedAdjectiveNotifications = Array.from(matchGroups.entries()).map(([mutualAdjective, matches]) => {
       const latestMatch = matches[0];
-      const userIds = matches.map(m => m.userId1);
-      const userNames = matches.map(m => m.user1?.name || 'Unknown User');
-      const userProfileImages = matches.map(m => m.user1?.images?.[0]?.imageUrl || null);
+      
+      // Get the other user for each match
+      const otherUsers = matches.map(match => {
+        const otherUser = match.userId1 === userId ? match.matchUser2 : match.matchUser1;
+        return {
+          id: otherUser.id,
+          name: otherUser.name || otherUser.username || 'Unknown User',
+          profileImage: null // We'll need to add image logic if needed
+        };
+      });
 
       return {
         id: latestMatch.id,
-        adjective,
+        adjective: mutualAdjective,
         count: matches.length,
-        userIds,
-        userNames,
-        userProfileImages,
-        timeAgo: calculateTimeAgo(latestMatch.timestamp),
-        createdAt: latestMatch.timestamp
+        userIds: otherUsers.map(u => u.id),
+        userNames: otherUsers.map(u => u.name),
+        userProfileImages: otherUsers.map(u => u.profileImage),
+        timeAgo: calculateTimeAgo(latestMatch.matchTimestamp),
+        createdAt: latestMatch.matchTimestamp,
+        isConnected: latestMatch.isConnected,
+        iceBreakingPrompt: latestMatch.iceBreakingPrompt
       };
     });
 

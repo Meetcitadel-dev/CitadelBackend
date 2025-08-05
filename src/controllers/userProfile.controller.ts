@@ -26,7 +26,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       include: [
         {
           model: University,
-          as: 'university'
+          as: 'userUniversity'
         }
       ]
     });
@@ -172,12 +172,12 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       include: [
         {
           model: User,
-          as: 'user1',
+          as: 'connectionUser1',
           attributes: ['id', 'name', 'username']
         },
         {
           model: User,
-          as: 'user2',
+          as: 'connectionUser2',
           attributes: ['id', 'name', 'username']
         }
       ]
@@ -187,7 +187,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     const connections = userConnections.map(conn => {
       const isUser1 = conn.userId1 === user.id;
       const connectedUser = isUser1 ? conn.userId2 : conn.userId1;
-      const connectedUserData = isUser1 ? (conn as any).user2 : (conn as any).user1;
+      const connectedUserData = isUser1 ? (conn as any).connectionUser2 : (conn as any).connectionUser1;
       return {
         id: connectedUser,
         name: connectedUserData?.name || 'Unknown User'

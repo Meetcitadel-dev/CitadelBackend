@@ -3,6 +3,7 @@ import { Op } from 'sequelize';
 import User from '../models/user.model';
 import Connection from '../models/connection.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
+import Match from '../models/match.model';
 import Conversation from '../models/conversation.model';
 import Message from '../models/message.model';
 import UserOnlineStatus from '../models/userOnlineStatus.model';
@@ -35,12 +36,12 @@ class ChatController {
         include: [
           {
             model: User,
-            as: 'user1',
+            as: 'connectionUser1',
             attributes: ['id', 'name', 'username']
           },
           {
             model: User,
-            as: 'user2',
+            as: 'connectionUser2',
             attributes: ['id', 'name', 'username']
           }
         ]
@@ -51,7 +52,7 @@ class ChatController {
       const conversations = await Promise.all(
         connections.map(async (connection: any) => {
           // Fix: Get the OTHER user, not the same user
-          const otherUser = connection.userId1 === userId ? connection.user2 : connection.user1;
+          const otherUser = connection.userId1 === userId ? connection.connectionUser2 : connection.connectionUser1;
           console.log(`👤 [ACTIVE] Other user: ${otherUser.name} (ID: ${otherUser.id})`);
           
           const conversation = await Conversation.findOne({
@@ -126,8 +127,8 @@ class ChatController {
       const userId = req.user!.id;
       console.log('🔍 [MATCHES] Looking for matched conversations for user ID:', userId);
 
-      // Get all matched users
-      const matches = await AdjectiveMatch.findAll({
+      // Get all matched users using the new Match model
+      const matches = await Match.findAll({
         where: {
           [Op.or]: [
             { userId1: userId },
@@ -137,12 +138,12 @@ class ChatController {
         include: [
           {
             model: User,
-            as: 'user1',
+            as: 'matchUser1',
             attributes: ['id', 'name', 'username']
           },
           {
             model: User,
-            as: 'user2',
+            as: 'matchUser2',
             attributes: ['id', 'name', 'username']
           }
         ]
@@ -153,7 +154,7 @@ class ChatController {
       const conversations = await Promise.all(
         matches.map(async (match: any) => {
           // Fix: Get the OTHER user, not the same user
-          const otherUser = match.userId1 === userId ? match.user2 : match.user1;
+          const otherUser = match.userId1 === userId ? match.matchUser2 : match.matchUser1;
           console.log(`👤 [MATCHES] Other user: ${otherUser.name} (ID: ${otherUser.id})`);
           
           const conversation = await Conversation.findOne({
@@ -252,7 +253,7 @@ class ChatController {
         include: [
           {
             model: User,
-            as: 'sender',
+            as: 'messageSender',
             attributes: ['id', 'name', 'username']
           }
         ]
@@ -263,7 +264,11 @@ class ChatController {
         text: msg.text,
         isSent: msg.senderId === userId,
         timestamp: msg.createdAt,
-        status: msg.status
+        status: msg.status,
+        sender: {
+          id: msg.messageSender?.id,
+          name: msg.messageSender?.name || msg.messageSender?.username || 'Unknown User'
+        }
       }));
 
       res.json({

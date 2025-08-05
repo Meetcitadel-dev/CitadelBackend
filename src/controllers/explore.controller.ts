@@ -12,7 +12,17 @@ import { Op } from 'sequelize';
 const ADJECTIVES = [
   'Smart', 'Creative', 'Funny', 'Ambitious', 'Kind',
   'Adventurous', 'Reliable', 'Witty', 'Thoughtful', 'Bold',
-  'Genuine', 'Energetic', 'Calm', 'Inspiring', 'Curious', 'Intelligent'
+  'Genuine', 'Energetic', 'Calm', 'Inspiring', 'Curious', 'Intelligent',
+  'Disciplined', 'Handsome', 'Strong', 'Brave', 'Confident', 'Loyal', 'Honest',
+  'Hardworking', 'Protective', 'Respectful', 'Determined', 'Steadfast', 'Courageous',
+  'Dutiful', 'Gallant', 'Steady', 'Vigilant', 'Tough', 'Sincere', 'Decisive',
+  'Daring', 'Honorable', 'Beautiful', 'Graceful', 'Caring', 'Elegant', 'Nurturing',
+  'Gentle', 'Compassionate', 'Radiant', 'Warm', 'Empathetic', 'Intuitive', 'Joyful',
+  'Poised', 'Articulate', 'Persistent', 'Loving', 'Cheerful', 'Vibrant', 'Serene',
+  'Lovable', 'Bright', 'Charming', 'Gracious', 'Selfless', 'Optimistic', 'Organized',
+  'Adaptable', 'Generous', 'Passionate', 'Enthusiastic', 'Mindful', 'Innovative',
+  'Dedicated', 'Resourceful', 'Practical', 'Considerate', 'Collaborative', 'Resilient',
+  'Open-minded', 'Level-headed', 'Analytical', 'Patient'
 ];
 
 // Year mapping from frontend to database values
@@ -70,18 +80,18 @@ const calculateMatchScore = (user1: any, user2: any): number => {
     score = 0.4;
   }
   // Same city + same degree + same year (Score: 0.3)
-  else if (user1.university?.country === user2.university?.country && 
+  else if (user1.userUniversity?.country === user2.userUniversity?.country && 
            user1.degree === user2.degree && 
            user1.year === user2.year) {
     score = 0.3;
   }
   // Same city + same year (Score: 0.2)
-  else if (user1.university?.country === user2.university?.country && 
+  else if (user1.userUniversity?.country === user2.userUniversity?.country && 
            user1.year === user2.year) {
     score = 0.2;
   }
   // Same city (Score: 0.1)
-  else if (user1.university?.country === user2.university?.country) {
+  else if (user1.userUniversity?.country === user2.userUniversity?.country) {
     score = 0.1;
   }
   
@@ -145,7 +155,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       const currentUser = await User.findByPk(currentUserId, {
         include: [{
           model: University,
-          as: 'university'
+          as: 'userUniversity'
         }]
       });
 
@@ -217,7 +227,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         }
         
         if (universitiesArray.length > 0) {
-          whereClause['$university.name$'] = { [Op.in]: universitiesArray };
+          whereClause['$userUniversity.name$'] = { [Op.in]: universitiesArray };
         }
       }
 
@@ -243,7 +253,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         include: [
           {
             model: University,
-            as: 'university'
+            as: 'userUniversity'
           },
           {
             model: UserImage,
@@ -271,14 +281,14 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
             },
             isProfileComplete: true
           },
-          include: [
-            {
-              model: University,
-              as: 'university',
-              where: {
-                name: { [Op.iLike]: `%${searchTerm}%` }
-              }
-            },
+                      include: [
+              {
+                model: University,
+                as: 'userUniversity',
+                where: {
+                  name: { [Op.iLike]: `%${searchTerm}%` }
+                }
+              },
             {
               model: UserImage,
               as: 'images',
@@ -321,7 +331,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
             name: user.name,
             username: user.username,
             email: user.email,
-            university: (user as any).university,
+            university: (user as any).userUniversity,
             degree: user.degree,
             year: user.year,
             gender: user.gender,
@@ -348,7 +358,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         include: [
           {
             model: University,
-            as: 'university'
+            as: 'userUniversity'
           }
         ]
       });
@@ -664,12 +674,10 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
         }
       });
 
+      // Allow updates - don't block if interaction exists
+      let isUpdate = false;
       if (existingInteraction) {
-        res.status(400).json({ 
-          success: false, 
-          message: 'You have already interacted with this profile. Please explore other profiles first.' 
-        });
-        return;
+        isUpdate = true;
       }
 
       // Create or update adjective selection
@@ -693,12 +701,19 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
         await adjectiveMatch.update({ timestamp: new Date() });
       }
 
-      // Track the interaction
-      await Interaction.create({
-        userId: currentUserId,
-        targetUserId: targetUserId,
-        interactionType: 'adjective_selected',
-        timestamp: new Date()
+      // Track the interaction (use findOrCreate to avoid duplicate key errors)
+      await Interaction.findOrCreate({
+        where: {
+          userId: currentUserId,
+          targetUserId: targetUserId,
+          interactionType: 'adjective_selected'
+        },
+        defaults: {
+          userId: currentUserId,
+          targetUserId: targetUserId,
+          interactionType: 'adjective_selected',
+          timestamp: new Date()
+        }
       });
 
       // Check for mutual match
@@ -730,7 +745,8 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
       res.json({
         success: true,
         matched,
-        matchData
+        matchData,
+        isUpdate
       });
 
     } catch (error) {

@@ -9,10 +9,12 @@ import authRoutes from './routes/auth.routes';
 import profileRoutes from './routes/profile.routes';
 import onboardingRoutes from './routes/onboarding.routes';
 import exploreRoutes from './routes/explore.routes';
+import enhancedExploreRoutes from './routes/enhancedExplore.routes';
 import connectionsRoutes from './routes/connections.routes';
 import notificationRoutes from './routes/notification.routes';
 import userProfileRoutes from './routes/userProfile.routes';
 import chatRoutes from './routes/chat.routes';
+import enhancedChatRoutes from './routes/enhancedChat.routes';
 import paymentRoutes from './routes/payment.routes';
 
 const app = express();
@@ -35,10 +37,12 @@ app.use('/api/profile', profileRoutes); // Add alias for backward compatibility
 app.use('/api/v1', universityRoutes);
 app.use('/api/v1', onboardingRoutes);
 app.use('/api/v1/explore', exploreRoutes);
+app.use('/api/v1/enhanced-explore', enhancedExploreRoutes);
 app.use('/api/v1/connections', connectionsRoutes); // Use dedicated connections routes
 app.use('/api/v1', notificationRoutes); // Add notification routes
 app.use('/api/v1/users', userProfileRoutes); // Add user profile routes
 app.use('/api/v1/chats', chatRoutes); // Add chat routes
+app.use('/api/v1/enhanced-chats', enhancedChatRoutes); // Add enhanced chat routes
 app.use('/api/v1/payments', paymentRoutes); // Add payment routes
 app.use('/api/payments', paymentRoutes); // Add alias for frontend compatibility
 

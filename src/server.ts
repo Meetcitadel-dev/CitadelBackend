@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { createServer } from 'http';
 import app from './app';
+import './models'; // Import all models to ensure they are initialized
 import { setupAssociations } from './models/associations';
 import websocketService from './services/websocket.service';
 
