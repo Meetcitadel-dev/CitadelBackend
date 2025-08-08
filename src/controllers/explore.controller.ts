@@ -265,7 +265,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
 
         limit: Number(limit),
         offset: Number(offset),
-        order: getSortOrder(sortBy as string)
+        order: sortBy === 'match_score' ? [['createdAt', 'DESC']] : getSortOrder(sortBy as string)
       });
 
       // If there's a search term, also search by university name
@@ -298,7 +298,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
           ],
           limit: Number(limit),
           offset: Number(offset),
-          order: getSortOrder(sortBy as string)
+          order: sortBy === 'match_score' ? [['createdAt', 'DESC']] : getSortOrder(sortBy as string)
         });
 
         // Combine and deduplicate results
@@ -352,6 +352,11 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         })
       );
 
+      // Sort by match score if requested
+      if (sortBy === 'match_score') {
+        profiles.sort((a, b) => b.matchScore - a.matchScore);
+      }
+
       // Get total count for pagination
       const totalCount = await User.count({
         where: whereClause,
@@ -396,7 +401,7 @@ const getSortOrder = (sortBy: string): any[] => {
     case 'name_desc':
       return [['name', 'DESC']];
     case 'match_score':
-      return [['createdAt', 'DESC']]; // Default sort by creation date
+      return [['createdAt', 'DESC']]; // Initial sort by creation date, then re-sort by match score
     default:
       return [['createdAt', 'DESC']];
   }

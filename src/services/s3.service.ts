@@ -24,81 +24,38 @@ export function generateCloudFrontSignedUrl(s3Key: string, expiresIn: number = 3
   const keyPairId = process.env.CLOUDFRONT_KEY_PAIR_ID;
   const privateKey = process.env.CLOUDFRONT_PRIVATE_KEY;
 
-  // Validate CloudFront configuration
-  const hasValidCloudFront = cloudfrontDomain && 
-                            keyPairId && 
-                            privateKey && 
-                            privateKey.length > 1000 && // Valid RSA key should be much longer
-                            privateKey.includes('-----BEGIN') && 
-                            privateKey.includes('-----END');
-
-  // If CloudFront is not properly configured, use S3 signed URL
-  if (!hasValidCloudFront) {
-    console.warn('CloudFront not properly configured, using S3 signed URL');
-    console.warn('CloudFront issues:', {
-      domain: !cloudfrontDomain,
-      keyPairId: !keyPairId,
-      privateKey: !privateKey,
-      keyTooShort: privateKey && privateKey.length <= 1000,
-      missingHeaders: privateKey && (!privateKey.includes('-----BEGIN') || !privateKey.includes('-----END'))
-    });
-    return generateS3SignedUrl(s3Key, expiresIn);
-  }
-
-  // Format the private key properly for Node.js crypto
-  let formattedPrivateKey = privateKey.trim();
-  
-  // Check if it's already in PEM format
-  if (!formattedPrivateKey.includes('-----BEGIN')) {
-    // If the key doesn't have PEM headers, add them
-    // Split the key into 64-character lines
-    const keyLines = [];
-    for (let i = 0; i < formattedPrivateKey.length; i += 64) {
-      keyLines.push(formattedPrivateKey.substring(i, i + 64));
-    }
-    
-    formattedPrivateKey = `-----BEGIN RSA PRIVATE KEY-----\n${keyLines.join('\n')}\n-----END RSA PRIVATE KEY-----`;
+  if (!cloudfrontDomain || !keyPairId || !privateKey) {
+    throw new Error('CloudFront configuration missing');
   }
 
   const url = `https://${cloudfrontDomain}/${s3Key}`;
   const expires = Math.floor(Date.now() / 1000) + expiresIn;
-  
+
   const policy = {
     Statement: [
       {
-        Resource: url,
+        Resource: `https://${cloudfrontDomain}/${s3Key}`,
         Condition: {
           DateLessThan: {
-            'AWS:EpochTime': expires
-          }
-        }
-      }
-    ]
+            'AWS:EpochTime': expires,
+          },
+        },
+      },
+    ],
   };
 
   const policyString = JSON.stringify(policy);
   const policyBuffer = Buffer.from(policyString, 'utf8');
-  const policyBase64 = policyBuffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const signature = crypto.sign('RSA-SHA1', policyBuffer, privateKey);
+  const signatureBase64 = signature.toString('base64');
 
-  try {
-    const sign = crypto.createSign('RSA-SHA1');
-    sign.update(policyString);
-    const signature = sign.sign(formattedPrivateKey, 'base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    
-    console.log('✅ Generating CloudFront signed URL');
-    return `${url}?Policy=${policyBase64}&Signature=${signature}&Key-Pair-Id=${keyPairId}`;
-  } catch (error) {
-    console.error('Error generating CloudFront signed URL:', error);
-    console.error('Private key format check:', {
-      hasHeaders: formattedPrivateKey.includes('-----BEGIN'),
-      hasFooters: formattedPrivateKey.includes('-----END'),
-      keyLength: formattedPrivateKey.length,
-      firstLine: formattedPrivateKey.split('\n')[0],
-      lastLine: formattedPrivateKey.split('\n').slice(-1)[0]
-    });
-    // Fallback: generate S3 signed URL
-    return generateS3SignedUrl(s3Key, expiresIn);
-  }
+  const queryParams = new URLSearchParams({
+    Policy: policyString,
+    Signature: signatureBase64,
+    'Key-Pair-Id': keyPairId,
+  });
+
+  return `${url}?${queryParams.toString()}`;
 }
 
 export function generateS3SignedUrl(s3Key: string, expiresIn: number = 3600): string {
