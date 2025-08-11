@@ -11,6 +11,10 @@ import NotificationReadStatus from './notificationReadStatus.model';
 import Conversation from './conversation.model';
 import Message from './message.model';
 import UserOnlineStatus from './userOnlineStatus.model';
+import Group from './group.model';
+import GroupMember from './groupMember.model';
+import GroupMessage from './groupMessage.model';
+import GroupMessageRead from './groupMessageRead.model';
 
 // Define all model associations
 export function setupAssociations() {
@@ -71,4 +75,23 @@ export function setupAssociations() {
 
   UserOnlineStatus.belongsTo(User, { foreignKey: 'userId', as: 'onlineStatusUser' });
   User.hasOne(UserOnlineStatus, { foreignKey: 'userId', as: 'onlineStatus' });
+
+  // Group chat associations
+  Group.belongsTo(User, { foreignKey: 'createdBy', as: 'groupCreator' });
+  User.hasMany(Group, { foreignKey: 'createdBy', as: 'createdGroups' });
+
+  GroupMember.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+  GroupMember.belongsTo(User, { foreignKey: 'userId', as: 'member' });
+  Group.hasMany(GroupMember, { foreignKey: 'groupId', as: 'members' });
+  User.hasMany(GroupMember, { foreignKey: 'userId', as: 'groupMemberships' });
+
+  GroupMessage.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+  GroupMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
+  Group.hasMany(GroupMessage, { foreignKey: 'groupId', as: 'messages' });
+  User.hasMany(GroupMessage, { foreignKey: 'senderId', as: 'sentGroupMessages' });
+
+  GroupMessageRead.belongsTo(GroupMessage, { foreignKey: 'messageId', as: 'message' });
+  GroupMessageRead.belongsTo(User, { foreignKey: 'userId', as: 'reader' });
+  GroupMessage.hasMany(GroupMessageRead, { foreignKey: 'messageId', as: 'readStatuses' });
+  User.hasMany(GroupMessageRead, { foreignKey: 'userId', as: 'groupMessageReads' });
 } 

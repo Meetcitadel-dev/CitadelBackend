@@ -10,7 +10,8 @@
     "get-simple-data": "ts-node src/scripts/simpleData.ts",
     "delete-users": "ts-node src/scripts/deleteUsers.ts",
     "reset-auto-increment": "ts-node src/scripts/resetAutoIncrement.ts",
-    "test-payment": "ts-node src/scripts/testPaymentIntegration.ts"
+    "test-payment": "ts-node src/scripts/testPaymentIntegration.ts",
+    "test-group-chat": "ts-node src/scripts/testGroupChat.ts"
   },
   "keywords": [],
   "author": "",

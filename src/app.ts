@@ -15,6 +15,7 @@ import notificationRoutes from './routes/notification.routes';
 import userProfileRoutes from './routes/userProfile.routes';
 import chatRoutes from './routes/chat.routes';
 import enhancedChatRoutes from './routes/enhancedChat.routes';
+import groupChatRoutes from './routes/groupChat.routes';
 import paymentRoutes from './routes/payment.routes';
 
 const app = express();
@@ -43,6 +44,8 @@ app.use('/api/v1', notificationRoutes); // Add notification routes
 app.use('/api/v1/users', userProfileRoutes); // Add user profile routes
 app.use('/api/v1/chats', chatRoutes); // Add chat routes
 app.use('/api/v1/enhanced-chats', enhancedChatRoutes); // Add enhanced chat routes
+app.use('/api/v1/group-chats', groupChatRoutes); // Add group chat routes
+app.use('/api/v1/groups', groupChatRoutes); // Add alias for groups endpoint
 app.use('/api/v1/payments', paymentRoutes); // Add payment routes
 app.use('/api/payments', paymentRoutes); // Add alias for frontend compatibility
 

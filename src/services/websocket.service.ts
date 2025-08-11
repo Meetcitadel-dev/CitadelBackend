@@ -24,6 +24,15 @@ interface MarkReadData {
   conversationId: string;
 }
 
+interface GroupMessageData {
+  groupId: number;
+  message: string;
+}
+
+interface GroupTypingData {
+  groupId: number;
+}
+
 class WebSocketService {
   private io: SocketIOServer | null = null;
   private userSockets: Map<number, string> = new Map(); // userId -> socketId
@@ -108,6 +117,23 @@ class WebSocketService {
     // Handle message read
     socket.on('mark_read', async (data: MarkReadData) => {
       await this.handleMarkAsRead(socket, data);
+    });
+
+    // Handle group chat events
+    socket.on('join-group', (data: { groupId: number }) => {
+      this.handleJoinGroup(socket, data);
+    });
+
+    socket.on('leave-group', (data: { groupId: number }) => {
+      this.handleLeaveGroup(socket, data);
+    });
+
+    socket.on('group-typing-start', (data: GroupTypingData) => {
+      this.handleGroupTypingStart(socket, data);
+    });
+
+    socket.on('group-typing-stop', (data: GroupTypingData) => {
+      this.handleGroupTypingStop(socket, data);
     });
   }
 
@@ -334,6 +360,112 @@ class WebSocketService {
   // Check if user is online
   public isUserOnline(userId: number): boolean {
     return this.userSockets.has(userId);
+  }
+
+  // Group chat handlers
+  private handleJoinGroup(socket: any, data: { groupId: number }) {
+    const { groupId } = data;
+    const userId = socket.userId;
+    
+    console.log(`👥 WebSocket - User ${userId} joining group ${groupId}`);
+    console.log(`👥 WebSocket - Socket ID: ${socket.id}`);
+    console.log(`👥 WebSocket - Room name: group_${groupId}`);
+    
+    // Join the group room
+    socket.join(`group_${groupId}`);
+    
+    // Verify room membership
+    const room = this.io!.sockets.adapter.rooms.get(`group_${groupId}`);
+    const socketCount = room ? room.size : 0;
+    console.log(`👥 WebSocket - Room ${groupId} now has ${socketCount} sockets`);
+    
+    if (room) {
+      const socketIds = Array.from(room);
+      console.log(`👥 WebSocket - Sockets in room:`, socketIds);
+    }
+    
+    // Notify other group members
+    socket.to(`group_${groupId}`).emit('member-joined', {
+      groupId,
+      userId
+    });
+    
+    console.log(`✅ WebSocket - User ${userId} successfully joined group ${groupId}`);
+  }
+
+  private handleLeaveGroup(socket: any, data: { groupId: number }) {
+    const { groupId } = data;
+    const userId = socket.userId;
+    
+    console.log(`👥 WebSocket - User ${userId} leaving group ${groupId}`);
+    
+    // Leave the group room
+    socket.leave(`group_${groupId}`);
+    
+    // Notify other group members
+    socket.to(`group_${groupId}`).emit('member-left', {
+      groupId,
+      userId
+    });
+  }
+
+  private handleGroupTypingStart(socket: any, data: GroupTypingData) {
+    const { groupId } = data;
+    const userId = socket.userId;
+    
+    console.log(`👥 WebSocket - User ${userId} typing in group ${groupId}`);
+    
+    // Emit to all group members except sender
+    socket.to(`group_${groupId}`).emit('group-user-typing', {
+      groupId,
+      userId
+    });
+  }
+
+  private handleGroupTypingStop(socket: any, data: GroupTypingData) {
+    const { groupId } = data;
+    const userId = socket.userId;
+    
+    console.log(`👥 WebSocket - User ${userId} stopped typing in group ${groupId}`);
+    
+    // Emit to all group members except sender
+    socket.to(`group_${groupId}`).emit('group-user-stopped-typing', {
+      groupId,
+      userId
+    });
+  }
+
+  // Public method to emit to group
+  public emitToGroup(groupId: number, event: string, data: any) {
+    console.log(`📡 WebSocket - Emitting ${event} to group ${groupId}`);
+    console.log(`📡 WebSocket - Room: group_${groupId}`);
+    console.log(`📡 WebSocket - Data:`, data);
+    
+    if (this.io) {
+      // Get all sockets in the room
+      const room = this.io.sockets.adapter.rooms.get(`group_${groupId}`);
+      const socketCount = room ? room.size : 0;
+      console.log(`📡 WebSocket - Sockets in room group_${groupId}: ${socketCount}`);
+      
+      // List all sockets in the room for debugging
+      if (room) {
+        const socketIds = Array.from(room);
+        console.log(`📡 WebSocket - Socket IDs in room:`, socketIds);
+      }
+      
+      // Try emitting to the room
+      this.io.to(`group_${groupId}`).emit(event, data);
+      console.log(`✅ WebSocket - Group event ${event} emitted successfully to ${socketCount} sockets`);
+      
+      // Also try broadcasting to all connected sockets as a fallback
+      if (socketCount === 0) {
+        console.log(`⚠️  WebSocket - No sockets in room, trying broadcast to all connected users`);
+        this.io.emit(event, data);
+        console.log(`✅ WebSocket - Broadcast fallback completed`);
+      }
+    } else {
+      console.log(`❌ WebSocket - IO server not initialized`);
+    }
   }
 }
 

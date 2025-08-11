@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
+import sequelize from '../config/db';
 import User from '../models/user.model';
 import Connection from '../models/connection.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
@@ -7,6 +8,9 @@ import Match from '../models/match.model';
 import Conversation from '../models/conversation.model';
 import Message from '../models/message.model';
 import UserOnlineStatus from '../models/userOnlineStatus.model';
+import Group from '../models/group.model';
+import GroupMember from '../models/groupMember.model';
+import GroupMessage from '../models/groupMessage.model';
 import websocketService from '../services/websocket.service';
 import UserImage from '../models/userImage.model';
 
@@ -18,7 +22,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 class ChatController {
-  // Get active conversations (connected users)
+  // Get active conversations (connected users and groups)
   async getActiveConversations(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!.id;
@@ -100,17 +104,86 @@ class ChatController {
             lastMessage,
             lastMessageTime,
             isOnline: false, // Simplified for now
-            unreadCount
+            unreadCount,
+            type: 'individual'
           };
         })
       );
 
-      const filteredConversations = conversations.filter((conv: any) => conv.id !== null);
-      console.log('✅ [ACTIVE] Returning filtered conversations:', filteredConversations.length);
+      // Get user's groups
+      const groupMemberships = await GroupMember.findAll({
+        where: { userId },
+        include: [
+          {
+            model: Group,
+            as: 'group',
+            where: { isActive: true }
+          }
+        ]
+      });
+
+      console.log('👥 [ACTIVE] Found groups:', groupMemberships.length);
+
+      const groupConversations = await Promise.all(
+        groupMemberships.map(async (membership: any) => {
+          const group = membership.group;
+          
+          // Get last message
+          const lastMessage = await GroupMessage.findOne({
+            where: { groupId: group.id },
+            order: [['createdAt', 'DESC']],
+            include: [
+              {
+                model: User,
+                as: 'sender',
+                attributes: ['id', 'name', 'username']
+              }
+            ]
+          });
+
+          // Get unread count
+          const unreadCount = await GroupMessage.count({
+            where: {
+              groupId: group.id,
+              senderId: { [Op.ne]: userId },
+              id: {
+                [Op.notIn]: sequelize.literal(`(
+                  SELECT "messageId" FROM "group_message_reads" 
+                  WHERE "userId" = ${userId}
+                )`)
+              }
+            }
+          });
+
+          return {
+            id: `group_${group.id}`,
+            groupId: group.id,
+            name: group.name,
+            profileImage: group.avatarUrl,
+            lastMessage: lastMessage ? lastMessage.content : null,
+            lastMessageTime: lastMessage ? lastMessage.createdAt : null,
+            isOnline: false,
+            unreadCount,
+            type: 'group',
+            memberCount: await GroupMember.count({ where: { groupId: group.id } })
+          };
+        })
+      );
+
+      const allConversations = [...conversations.filter((conv: any) => conv.id !== null), ...groupConversations];
+      
+      // Sort by last message time (most recent first)
+      allConversations.sort((a: any, b: any) => {
+        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      console.log('✅ [ACTIVE] Returning all conversations:', allConversations.length);
 
       res.json({
         success: true,
-        conversations: filteredConversations
+        conversations: allConversations
       });
     } catch (error) {
       console.error('❌ [ACTIVE] Error fetching active conversations:', error);

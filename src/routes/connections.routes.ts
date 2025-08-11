@@ -1,11 +1,15 @@
 import { Router } from 'express';
 import exploreController from '../controllers/explore.controller';
+import groupChatController from '../controllers/groupChat.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
+
+// GET /api/v1/connections - Get user's connections for group creation
+router.get('/', groupChatController.getConnections);
 
 // POST /api/v1/connections/manage - Manage connection requests
 router.post('/manage', exploreController.manageConnection);
