@@ -1,0 +1,211 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.logoutController = exports.refreshTokenController = exports.verifyOtpController = exports.sendOtpController = exports.checkUserExistsController = void 0;
+const otp_service_1 = require("../services/otp.service");
+const email_nodemailer_1 = require("../services/email.nodemailer");
+const validator_1 = require("../utils/validator");
+const university_model_1 = __importDefault(require("../models/university.model"));
+const user_model_1 = __importDefault(require("../models/user.model"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const checkUserExistsController = async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({
+            success: false,
+            message: 'Email is required'
+        });
+    }
+    // Validate university email format
+    const universities = await university_model_1.default.findAll();
+    const allowedDomains = universities.map(u => u.domain);
+    if (!(0, validator_1.isValidUniversityEmail)(email, allowedDomains)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid university email domain'
+        });
+    }
+    try {
+        // Check if user exists
+        const user = await user_model_1.default.findOne({ where: { email } });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found. Please sign up first.'
+            });
+        }
+        // Check if user is email verified
+        if (!user.isEmailVerified) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email not verified. Please complete email verification first.'
+            });
+        }
+        return res.json({
+            success: true,
+            message: 'User exists and can proceed with login',
+            user: {
+                id: user.id,
+                email: user.email,
+                isProfileComplete: user.isProfileComplete
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error checking user existence:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+};
+exports.checkUserExistsController = checkUserExistsController;
+const sendOtpController = async (req, res) => {
+    const { email, isLogin = false } = req.body;
+    if (!email)
+        return res.status(400).json({ success: false, message: 'Email is required' });
+    // Get allowed university domains
+    const universities = await university_model_1.default.findAll();
+    const allowedDomains = universities.map(u => u.domain);
+    if (!(0, validator_1.isValidUniversityEmail)(email, allowedDomains)) {
+        return res.status(400).json({ success: false, message: 'Invalid university email domain' });
+    }
+    try {
+        // For login flow, check if user exists first
+        if (isLogin) {
+            const existingUser = await user_model_1.default.findOne({ where: { email } });
+            if (!existingUser) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found. Please sign up first.'
+                });
+            }
+            if (!existingUser.isEmailVerified) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email not verified. Please complete email verification first.'
+                });
+            }
+        }
+        const { otp, expiresIn } = await (0, otp_service_1.sendOtp)(email);
+        await (0, email_nodemailer_1.sendEmail)(email, 'Your OTP Code', `Your OTP is: ${otp}`);
+        // Only upsert user for signup flow, not for login
+        if (!isLogin) {
+            await user_model_1.default.upsert({ email });
+        }
+        return res.json({ success: true, message: 'OTP sent successfully', expiresIn });
+    }
+    catch (err) {
+        return res.status(429).json({ success: false, message: err.message });
+    }
+};
+exports.sendOtpController = sendOtpController;
+const verifyOtpController = async (req, res) => {
+    const { email, otp, isLogin = false } = req.body;
+    if (!email || !otp)
+        return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    const user = await user_model_1.default.findOne({ where: { email } });
+    if (!user)
+        return res.status(404).json({ success: false, message: 'User not found' });
+    const valid = await (0, otp_service_1.verifyOtp)(email, otp);
+    if (!valid)
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    // For signup flow, mark email as verified
+    if (!isLogin) {
+        user.isEmailVerified = true;
+        user.otpAttempts = 0;
+        await user.save();
+    }
+    // Generate JWT tokens
+    const accessToken = jsonwebtoken_1.default.sign({
+        sub: user.id,
+        username: user.email.split('@')[0], // Use email prefix as username
+        role: 'USER', // Default role
+        email: user.email
+    }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
+    const refreshToken = jsonwebtoken_1.default.sign({
+        sub: user.id,
+        username: user.email.split('@')[0],
+        role: 'USER',
+        email: user.email
+    }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    return res.json({
+        success: true,
+        tokens: { accessToken, refreshToken },
+        user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            username: user.username,
+            universityId: user.universityId,
+            degree: user.degree,
+            year: user.year,
+            gender: user.gender,
+            dateOfBirth: user.dateOfBirth,
+            skills: user.skills,
+            friends: user.friends,
+            aboutMe: user.aboutMe,
+            sports: user.sports,
+            movies: user.movies,
+            tvShows: user.tvShows,
+            teams: user.teams,
+            portfolioLink: user.portfolioLink,
+            phoneNumber: user.phoneNumber,
+            isProfileComplete: user.isProfileComplete,
+            isEmailVerified: user.isEmailVerified,
+        },
+    });
+};
+exports.verifyOtpController = verifyOtpController;
+const refreshTokenController = async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(400).json({ success: false, message: 'Refresh token is required' });
+    }
+    try {
+        const decoded = jsonwebtoken_1.default.verify(refreshToken, process.env.JWT_SECRET || 'secret');
+        const user = await user_model_1.default.findByPk(decoded.sub);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        // Generate new access token
+        const newAccessToken = jsonwebtoken_1.default.sign({
+            sub: user.id,
+            username: user.email.split('@')[0],
+            role: 'USER',
+            email: user.email
+        }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
+        return res.json({
+            success: true,
+            accessToken: newAccessToken,
+        });
+    }
+    catch (error) {
+        return res.status(401).json({ success: false, message: 'Invalid refresh token' });
+    }
+};
+exports.refreshTokenController = refreshTokenController;
+// Logout endpoint
+const logoutController = async (req, res) => {
+    try {
+        // For now, we'll just return success since JWT tokens are stateless
+        // In a production environment, you might want to:
+        // 1. Add the token to a blacklist
+        // 2. Store blacklisted tokens in Redis
+        // 3. Check blacklist in authenticateToken middleware
+        return res.json({
+            success: true,
+            message: 'Logged out successfully'
+        });
+    }
+    catch (error) {
+        console.error('Error during logout:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to logout'
+        });
+    }
+};
+exports.logoutController = logoutController;

@@ -497,15 +497,15 @@ class GroupChatController {
         });
       }
 
-      // Check if user is admin of the group
+      // Check if user is a member of the group
       const membership = await GroupMember.findOne({
-        where: { groupId: Number(groupId), userId, isAdmin: true }
+        where: { groupId: Number(groupId), userId }
       });
 
       if (!membership) {
         return res.status(403).json({
           success: false,
-          message: 'Only group admins can update group details'
+          message: 'You must be a member of the group to update group details'
         });
       }
 
@@ -598,7 +598,7 @@ class GroupChatController {
         })),
         createdAt: updatedGroupWithMembers!.createdAt,
         updatedAt: updatedGroupWithMembers!.updatedAt,
-        isAdmin: true // Since only admins can update
+        isAdmin: membership.isAdmin // Show actual admin status
       };
 
       // Send success response
@@ -698,15 +698,15 @@ class GroupChatController {
         });
       }
 
-      // Check if user is admin of the group
+      // Check if user is a member of the group
       const membership = await GroupMember.findOne({
-        where: { groupId: Number(groupId), userId, isAdmin: true }
+        where: { groupId: Number(groupId), userId }
       });
 
       if (!membership) {
         return res.status(403).json({
           success: false,
-          message: 'Only group admins can add members'
+          message: 'You must be a member of the group to add members'
         });
       }
 
@@ -775,15 +775,15 @@ class GroupChatController {
         });
       }
 
-      // Check if user is admin of the group
+      // Check if user is a member of the group
       const membership = await GroupMember.findOne({
-        where: { groupId: Number(groupId), userId, isAdmin: true }
+        where: { groupId: Number(groupId), userId }
       });
 
       if (!membership) {
         return res.status(403).json({
           success: false,
-          message: 'Only group admins can remove members'
+          message: 'You must be a member of the group to remove members'
         });
       }
 
