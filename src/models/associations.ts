@@ -15,6 +15,7 @@ import Group from './group.model';
 import GroupMember from './groupMember.model';
 import GroupMessage from './groupMessage.model';
 import GroupMessageRead from './groupMessageRead.model';
+import UserUnreadCount from './userUnreadCount.model';
 
 // Define all model associations
 export function setupAssociations() {
@@ -94,4 +95,8 @@ export function setupAssociations() {
   GroupMessageRead.belongsTo(User, { foreignKey: 'userId', as: 'reader' });
   GroupMessage.hasMany(GroupMessageRead, { foreignKey: 'messageId', as: 'readStatuses' });
   User.hasMany(GroupMessageRead, { foreignKey: 'userId', as: 'groupMessageReads' });
+
+  // UserUnreadCount associations
+  UserUnreadCount.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+  User.hasMany(UserUnreadCount, { foreignKey: 'userId', as: 'unreadCounts' });
 } 

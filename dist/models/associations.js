@@ -21,6 +21,7 @@ const group_model_1 = __importDefault(require("./group.model"));
 const groupMember_model_1 = __importDefault(require("./groupMember.model"));
 const groupMessage_model_1 = __importDefault(require("./groupMessage.model"));
 const groupMessageRead_model_1 = __importDefault(require("./groupMessageRead.model"));
+const userUnreadCount_model_1 = __importDefault(require("./userUnreadCount.model"));
 // Define all model associations
 function setupAssociations() {
     // User-University associations
@@ -84,4 +85,7 @@ function setupAssociations() {
     groupMessageRead_model_1.default.belongsTo(user_model_1.default, { foreignKey: 'userId', as: 'reader' });
     groupMessage_model_1.default.hasMany(groupMessageRead_model_1.default, { foreignKey: 'messageId', as: 'readStatuses' });
     user_model_1.default.hasMany(groupMessageRead_model_1.default, { foreignKey: 'userId', as: 'groupMessageReads' });
+    // UserUnreadCount associations
+    userUnreadCount_model_1.default.belongsTo(user_model_1.default, { foreignKey: 'userId', as: 'user' });
+    user_model_1.default.hasMany(userUnreadCount_model_1.default, { foreignKey: 'userId', as: 'unreadCounts' });
 }

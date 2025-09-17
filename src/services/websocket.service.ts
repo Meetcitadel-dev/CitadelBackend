@@ -1,6 +1,6 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import UserOnlineStatus from '../models/userOnlineStatus.model';
 import Message from '../models/message.model';
@@ -333,15 +333,41 @@ class WebSocketService {
     });
   }
 
-  // Public method to emit events
+  // Public method to emit events to user's personal room
   public emitToUser(userId: number, event: string, data: any) {
-    const socketId = this.userSockets.get(userId);
-    console.log(`📡 WebSocket - Emitting ${event} to user ${userId}, socketId: ${socketId}`);
-    if (socketId && this.io) {
-      this.io.to(socketId).emit(event, data);
-      console.log(`✅ WebSocket - Event ${event} emitted successfully`);
+    console.log(`📡 WebSocket - Emitting ${event} to user ${userId}`);
+    console.log(`📡 WebSocket - Room: user_${userId}`);
+    console.log(`📡 WebSocket - Data:`, data);
+    
+    if (this.io) {
+      // Get all sockets in the user's personal room
+      const room = this.io.sockets.adapter.rooms.get(`user_${userId}`);
+      const socketCount = room ? room.size : 0;
+      console.log(`📡 WebSocket - Sockets in room user_${userId}: ${socketCount}`);
+      
+      // List all sockets in the room for debugging
+      if (room) {
+        const socketIds = Array.from(room);
+        console.log(`📡 WebSocket - Socket IDs in room:`, socketIds);
+      }
+      
+      // Try emitting to the user's personal room
+      this.io.to(`user_${userId}`).emit(event, data);
+      console.log(`✅ WebSocket - User event ${event} emitted successfully to ${socketCount} sockets`);
+      
+      // Also try direct socket emission as a fallback
+      if (socketCount === 0) {
+        const userSocketId = this.userSockets.get(userId);
+        if (userSocketId) {
+          console.log(`⚠️  WebSocket - No sockets in user room, trying direct socket emission`);
+          this.io.to(userSocketId).emit(event, data);
+          console.log(`✅ WebSocket - Direct socket emission completed`);
+        } else {
+          console.log(`⚠️  WebSocket - User ${userId} not connected`);
+        }
+      }
     } else {
-      console.log(`❌ WebSocket - User ${userId} not online or socket not found`);
+      console.log(`❌ WebSocket - IO server not initialized`);
     }
   }
 
@@ -467,6 +493,7 @@ class WebSocketService {
       console.log(`❌ WebSocket - IO server not initialized`);
     }
   }
+
 }
 
 export default new WebSocketService(); 

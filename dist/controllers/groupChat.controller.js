@@ -13,6 +13,7 @@ const groupMessageRead_model_1 = __importDefault(require("../models/groupMessage
 const userImage_model_1 = __importDefault(require("../models/userImage.model"));
 const db_1 = __importDefault(require("../config/db"));
 const websocket_service_1 = __importDefault(require("../services/websocket.service"));
+const unreadCount_service_1 = __importDefault(require("../services/unreadCount.service"));
 class GroupChatController {
     // Get user's connections for group creation
     async getConnections(req, res) {
@@ -265,19 +266,8 @@ class GroupChatController {
                         }
                     ]
                 });
-                // Get unread count
-                const unreadCount = await groupMessage_model_1.default.count({
-                    where: {
-                        groupId: group.id,
-                        senderId: { [sequelize_1.Op.ne]: userId },
-                        id: {
-                            [sequelize_1.Op.notIn]: db_1.default.literal(`(
-                  SELECT "messageId" FROM "group_message_reads" 
-                  WHERE "userId" = ${userId}
-                )`)
-                        }
-                    }
-                });
+                // Get unread count using the unread count service
+                const unreadCount = await unreadCount_service_1.default.getUnreadCount(userId, group.id, true);
                 // Check if user is admin
                 const userMembership = group.members.find((m) => m.userId === userId);
                 const isAdmin = userMembership?.isAdmin || false;
@@ -385,19 +375,8 @@ class GroupChatController {
                     }
                 ]
             });
-            // Get unread count
-            const unreadCount = await groupMessage_model_1.default.count({
-                where: {
-                    groupId: group.id,
-                    senderId: { [sequelize_1.Op.ne]: userId },
-                    id: {
-                        [sequelize_1.Op.notIn]: db_1.default.literal(`(
-              SELECT "messageId" FROM "group_message_reads" 
-              WHERE "userId" = ${userId}
-            )`)
-                    }
-                }
-            });
+            // Get unread count using the unread count service
+            const unreadCount = await unreadCount_service_1.default.getUnreadCount(userId, group.id, true);
             const formattedGroup = {
                 id: group.id,
                 name: group.name,
@@ -931,6 +910,8 @@ class GroupChatController {
                 message: formattedMessage
             });
             console.log(`✅ [GROUP] Group message emitted successfully`);
+            // Update unread counts for all group members except sender
+            await unreadCount_service_1.default.updateGroupUnreadCounts(Number(groupId), userId, message.id);
             res.json({
                 success: true,
                 message: formattedMessage
@@ -1000,6 +981,8 @@ class GroupChatController {
                 await Promise.all(readPromises);
                 console.log(`✅ [GROUP] Marked ${actuallyUnreadMessages.length} messages as read`);
             }
+            // Reset unread count for this user in this group
+            await unreadCount_service_1.default.resetUnreadCount(userId, Number(groupId), true);
             res.json({
                 success: true,
                 message: `Marked ${actuallyUnreadMessages.length} messages as read`

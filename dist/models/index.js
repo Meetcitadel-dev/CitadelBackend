@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GroupMessageRead = exports.GroupMessage = exports.GroupMember = exports.Group = exports.Event = exports.Payment = exports.Booking = exports.UserOnlineStatus = exports.Message = exports.Conversation = exports.NotificationReadStatus = exports.ConnectionRequest = exports.Interaction = exports.Match = exports.AdjectiveSelection = exports.AdjectiveMatch = exports.Connection = exports.UserImage = exports.University = exports.User = void 0;
+exports.UserUnreadCount = exports.GroupMessageRead = exports.GroupMessage = exports.GroupMember = exports.Group = exports.Event = exports.Payment = exports.Booking = exports.UserOnlineStatus = exports.Message = exports.Conversation = exports.NotificationReadStatus = exports.ConnectionRequest = exports.Interaction = exports.Match = exports.AdjectiveSelection = exports.AdjectiveMatch = exports.Connection = exports.UserImage = exports.University = exports.User = void 0;
 // Import all models to ensure they are initialized
 const user_model_1 = __importDefault(require("./user.model"));
 exports.User = user_model_1.default;
@@ -45,3 +45,5 @@ const groupMessage_model_1 = __importDefault(require("./groupMessage.model"));
 exports.GroupMessage = groupMessage_model_1.default;
 const groupMessageRead_model_1 = __importDefault(require("./groupMessageRead.model"));
 exports.GroupMessageRead = groupMessageRead_model_1.default;
+const userUnreadCount_model_1 = __importDefault(require("./userUnreadCount.model"));
+exports.UserUnreadCount = userUnreadCount_model_1.default;

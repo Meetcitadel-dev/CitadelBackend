@@ -292,8 +292,48 @@ const getExploreProfiles = async (req, res) => {
         }));
         // Sort by match score if requested
         if (sortBy === 'match_score') {
+            // Sort all by score desc first
             profiles.sort((a, b) => b.matchScore - a.matchScore);
         }
+        // Reorder: place connected users at the end, randomizing their order
+        // Preserve existing order for non-connected profiles unless match_score requires tie-randomization
+        const connectedProfiles = profiles.filter(p => p.connectionState && p.connectionState.status === 'connected');
+        let nonConnectedProfiles = profiles.filter(p => !(p.connectionState && p.connectionState.status === 'connected'));
+        // Helper: Fisher-Yates shuffle in-place
+        const shuffleInPlace = (arr) => {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const tmp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = tmp;
+            }
+        };
+        // If sorting by match_score, randomize within equal-score groups for non-connected profiles
+        if (sortBy === 'match_score' && nonConnectedProfiles.length > 1) {
+            const scoreToGroup = new Map();
+            for (const p of nonConnectedProfiles) {
+                const key = Number(p.matchScore || 0);
+                const group = scoreToGroup.get(key) || [];
+                group.push(p);
+                scoreToGroup.set(key, group);
+            }
+            // Get scores in descending order
+            const scoresDesc = Array.from(scoreToGroup.keys()).sort((a, b) => b - a);
+            const randomizedNonConnected = [];
+            for (const s of scoresDesc) {
+                const group = scoreToGroup.get(s);
+                if (group.length > 1) {
+                    shuffleInPlace(group);
+                }
+                randomizedNonConnected.push(...group);
+            }
+            nonConnectedProfiles = randomizedNonConnected;
+        }
+        // Randomize connected profiles always at the end
+        if (connectedProfiles.length > 1) {
+            shuffleInPlace(connectedProfiles);
+        }
+        const reorderedProfiles = [...nonConnectedProfiles, ...connectedProfiles];
         // Get total count for pagination
         const totalCount = await user_model_1.default.count({
             where: whereClause,
@@ -306,13 +346,13 @@ const getExploreProfiles = async (req, res) => {
         });
         // Get available filters for frontend
         const availableFilters = await getAvailableFiltersHelper();
-        console.log(`   Final profiles to return: ${profiles.length}`);
+        console.log(`   Final profiles to return: ${reorderedProfiles.length}`);
         console.log(`   Total count: ${totalCount}`);
         console.log(`   Has more: ${profiles.length >= Number(limit)}`);
         res.json({
             success: true,
-            profiles,
-            hasMore: profiles.length >= Number(limit),
+            profiles: reorderedProfiles,
+            hasMore: reorderedProfiles.length >= Number(limit),
             totalCount,
             filters: availableFilters
         });

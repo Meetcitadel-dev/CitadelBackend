@@ -12,6 +12,7 @@ import Group from '../models/group.model';
 import GroupMember from '../models/groupMember.model';
 import GroupMessage from '../models/groupMessage.model';
 import websocketService from '../services/websocket.service';
+import unreadCountService from '../services/unreadCount.service';
 import UserImage from '../models/userImage.model';
 
 interface AuthenticatedRequest extends Request {
@@ -410,6 +411,9 @@ class ChatController {
       // Get the other user in the conversation
       const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
 
+      // Update unread count for the recipient
+      await unreadCountService.updateDirectChatUnreadCount(Number(conversationId), userId, otherUserId, newMessage.id);
+
       // Emit real-time message to recipient if online
       console.log(`📡 Chat Controller - Checking if user ${otherUserId} is online...`);
       if (websocketService.isUserOnline(otherUserId)) {
@@ -494,6 +498,9 @@ class ChatController {
           }
         }
       );
+
+      // Reset unread count for this user in this conversation
+      await unreadCountService.resetUnreadCount(userId, Number(conversationId), false);
 
       // Notify sender that messages were read (real-time)
       if (websocketService.isUserOnline(otherUserId)) {

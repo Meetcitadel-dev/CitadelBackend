@@ -19,6 +19,7 @@ import Group from './group.model';
 import GroupMember from './groupMember.model';
 import GroupMessage from './groupMessage.model';
 import GroupMessageRead from './groupMessageRead.model';
+import UserUnreadCount from './userUnreadCount.model';
 
 // Import associations (will be set up in server.ts)
 import { setupAssociations } from './associations';
@@ -44,5 +45,6 @@ export {
   Group,
   GroupMember,
   GroupMessage,
-  GroupMessageRead
+  GroupMessageRead,
+  UserUnreadCount
 }; 
