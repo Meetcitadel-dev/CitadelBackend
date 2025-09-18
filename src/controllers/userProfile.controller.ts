@@ -200,11 +200,11 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       name: user.name,
       username: user.username,
       email: isOwnProfile ? user.email : undefined, // Hide email for other users
-      university: (user as any).university ? {
-        id: (user as any).university.id,
-        name: (user as any).university.name,
-        domain: (user as any).university.domain,
-        country: (user as any).university.country
+      university: (user as any).userUniversity ? {
+        id: (user as any).userUniversity.id,
+        name: (user as any).userUniversity.name,
+        domain: (user as any).userUniversity.domain,
+        country: (user as any).userUniversity.country
       } : null,
       degree: user.degree,
       year: user.year,
