@@ -67,3 +67,4 @@ module.exports = {
     await queryInterface.dropTable('user_unread_counts');
   }
 };
+
