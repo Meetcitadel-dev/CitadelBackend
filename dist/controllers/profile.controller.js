@@ -16,6 +16,7 @@ const adjectiveMatch_model_1 = __importDefault(require("../models/adjectiveMatch
 const notificationReadStatus_model_1 = __importDefault(require("../models/notificationReadStatus.model"));
 const userOnlineStatus_model_1 = __importDefault(require("../models/userOnlineStatus.model"));
 const s3_service_1 = require("../services/s3.service");
+const uploadthing_service_1 = require("../services/uploadthing.service");
 const sequelize_1 = require("sequelize");
 const uploadUserImage = async (req, res) => {
     try {
@@ -32,27 +33,43 @@ const uploadUserImage = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         const { originalname, mimetype, size, buffer } = req.file;
-        // Generate S3 key
-        const s3Key = (0, s3_service_1.generateS3Key)(userId, originalname);
-        // Upload to S3
-        await (0, s3_service_1.uploadImage)(buffer, s3Key, mimetype);
-        // Generate CloudFront signed URL (with fallback)
+        const useUT = process.env.USE_UPLOADTHING === 'true';
         let cloudfrontUrl;
-        try {
-            cloudfrontUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(s3Key);
+        let s3Key;
+        let storedMime = mimetype;
+        let storedSize = size;
+        if (useUT) {
+            console.log('[upload] Using UploadThing provider');
+            // Upload to UploadThing
+            const uploaded = await (0, uploadthing_service_1.utUploadImageFromBuffer)(buffer, originalname, mimetype);
+            cloudfrontUrl = uploaded.url; // keep response field name for client compatibility
+            s3Key = uploaded.key; // store provider key in existing s3Key column to avoid schema change
+            if (uploaded.type)
+                storedMime = uploaded.type;
+            if (uploaded.size)
+                storedSize = uploaded.size;
         }
-        catch (error) {
-            console.warn('CloudFront signing failed, using S3 signed URL as fallback:', error);
-            cloudfrontUrl = (0, s3_service_1.generateS3SignedUrl)(s3Key);
+        else {
+            console.log('[upload] Using S3 provider');
+            // S3 path (unchanged)
+            s3Key = (0, s3_service_1.generateS3Key)(userId, originalname);
+            await (0, s3_service_1.uploadImage)(buffer, s3Key, mimetype);
+            try {
+                cloudfrontUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(s3Key);
+            }
+            catch (error) {
+                console.warn('CloudFront signing failed, using S3 signed URL as fallback:', error);
+                cloudfrontUrl = (0, s3_service_1.generateS3SignedUrl)(s3Key);
+            }
         }
-        // Save to database
+        // Save to database (reuse existing columns for zero-downtime)
         const userImage = await userImage_model_1.default.create({
             userId,
             s3Key,
             cloudfrontUrl,
             originalName: originalname,
-            mimeType: mimetype,
-            fileSize: size,
+            mimeType: storedMime,
+            fileSize: storedSize,
         });
         res.status(201).json({
             message: 'Image uploaded successfully',
@@ -83,8 +100,22 @@ const getUserImages = async (req, res) => {
             where: { userId },
             order: [['createdAt', 'DESC']],
         });
-        // Generate fresh signed URLs for all images
+        const useUT = process.env.USE_UPLOADTHING === 'true';
+        // Build URLs depending on provider
         const imagesWithFreshUrls = await Promise.all(images.map(async (img) => {
+            if (useUT) {
+                return {
+                    id: img.id,
+                    userId: img.userId,
+                    s3Key: img.s3Key, // UploadThing key stored here
+                    cloudfrontUrl: img.cloudfrontUrl, // already a public URL from UploadThing
+                    originalName: img.originalName,
+                    mimeType: img.mimeType,
+                    fileSize: img.fileSize,
+                    createdAt: img.createdAt,
+                    updatedAt: img.updatedAt
+                };
+            }
             let freshUrl;
             try {
                 freshUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
@@ -130,8 +161,14 @@ const deleteUserImage = async (req, res) => {
         if (!userImage) {
             return res.status(404).json({ error: 'Image not found' });
         }
-        // Delete from S3
-        await (0, s3_service_1.deleteImage)(userImage.s3Key);
+        const useUT = process.env.USE_UPLOADTHING === 'true';
+        if (useUT) {
+            await (0, uploadthing_service_1.utDeleteImageByKey)(userImage.s3Key);
+        }
+        else {
+            // Delete from S3
+            await (0, s3_service_1.deleteImage)(userImage.s3Key);
+        }
         // Delete from database
         await userImage.destroy();
         res.json({
@@ -158,14 +195,20 @@ const getSignedUrl = async (req, res) => {
         if (!userImage) {
             return res.status(404).json({ error: 'Image not found' });
         }
-        // Generate a new signed URL
+        const useUT = process.env.USE_UPLOADTHING === 'true';
         let signedUrl;
-        try {
-            signedUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(userImage.s3Key);
+        if (useUT) {
+            // With UploadThing we store a public URL already
+            signedUrl = userImage.cloudfrontUrl;
         }
-        catch (error) {
-            console.warn('CloudFront signing failed, using S3 signed URL as fallback:', error);
-            signedUrl = (0, s3_service_1.generateS3SignedUrl)(userImage.s3Key);
+        else {
+            try {
+                signedUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(userImage.s3Key);
+            }
+            catch (error) {
+                console.warn('CloudFront signing failed, using S3 signed URL as fallback:', error);
+                signedUrl = (0, s3_service_1.generateS3SignedUrl)(userImage.s3Key);
+            }
         }
         res.json({
             message: 'Signed URL generated successfully',
@@ -202,8 +245,18 @@ const getMyProfile = async (req, res) => {
             where: { userId },
             order: [['createdAt', 'DESC']],
         });
-        // Generate fresh signed URLs for all images
+        const useUT = process.env.USE_UPLOADTHING === 'true';
         const imagesWithFreshUrls = await Promise.all(images.map(async (img) => {
+            if (useUT) {
+                return {
+                    id: img.id,
+                    cloudfrontUrl: img.cloudfrontUrl,
+                    originalName: img.originalName,
+                    mimeType: img.mimeType,
+                    fileSize: img.fileSize,
+                    createdAt: img.createdAt
+                };
+            }
             let freshUrl;
             try {
                 freshUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);

@@ -10,6 +10,7 @@ const userImage_model_1 = __importDefault(require("./userImage.model"));
 const connection_model_1 = __importDefault(require("./connection.model"));
 const adjectiveMatch_model_1 = __importDefault(require("./adjectiveMatch.model"));
 const adjectiveSelection_model_1 = __importDefault(require("./adjectiveSelection.model"));
+const adjectiveSession_model_1 = __importDefault(require("./adjectiveSession.model"));
 const match_model_1 = __importDefault(require("./match.model"));
 const interaction_model_1 = __importDefault(require("./interaction.model"));
 const connectionRequest_model_1 = __importDefault(require("./connectionRequest.model"));
@@ -41,6 +42,11 @@ function setupAssociations() {
     adjectiveSelection_model_1.default.belongsTo(user_model_1.default, { foreignKey: 'targetUserId', as: 'adjectiveSelectionTargetUser' });
     user_model_1.default.hasMany(adjectiveSelection_model_1.default, { foreignKey: 'userId', as: 'adjectiveSelections' });
     user_model_1.default.hasMany(adjectiveSelection_model_1.default, { foreignKey: 'targetUserId', as: 'adjectiveSelectionsReceived' });
+    // AdjectiveSession associations
+    adjectiveSession_model_1.default.belongsTo(user_model_1.default, { foreignKey: 'userId', as: 'adjectiveSessionUser' });
+    adjectiveSession_model_1.default.belongsTo(user_model_1.default, { foreignKey: 'targetUserId', as: 'adjectiveSessionTargetUser' });
+    user_model_1.default.hasMany(adjectiveSession_model_1.default, { foreignKey: 'userId', as: 'adjectiveSessions' });
+    user_model_1.default.hasMany(adjectiveSession_model_1.default, { foreignKey: 'targetUserId', as: 'adjectiveSessionsReceived' });
     // Match associations
     match_model_1.default.belongsTo(user_model_1.default, { foreignKey: 'userId1', as: 'matchUser1' });
     match_model_1.default.belongsTo(user_model_1.default, { foreignKey: 'userId2', as: 'matchUser2' });

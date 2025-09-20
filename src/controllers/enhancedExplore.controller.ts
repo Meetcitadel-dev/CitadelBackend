@@ -6,6 +6,7 @@ import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
 import AdjectiveSelection from '../models/adjectiveSelection.model';
+import AdjectiveSession from '../models/adjectiveSession.model';
 import Match from '../models/match.model';
 import Interaction from '../models/interaction.model';
 import { Op } from 'sequelize';
@@ -43,6 +44,30 @@ const YEAR_MAPPING: { [key: string]: string } = {
   '2nd': '2nd',
   '3rd': '3rd',
   '4th': '4th'
+};
+
+// Session management functions
+const generateSessionId = (): string => {
+  return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+const generateRandomAdjectives = (allowedAdjectives: string[], count: number = 4): string[] => {
+  const shuffled = [...allowedAdjectives].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+};
+
+const cleanupExpiredSessions = async (): Promise<void> => {
+  try {
+    await AdjectiveSession.destroy({
+      where: {
+        expiresAt: {
+          [Op.lt]: new Date()
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error cleaning up expired adjective sessions:', error);
+  }
 };
 
 // Ice-breaking prompts based on adjectives
@@ -251,7 +276,7 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
       matched,
       matchData,
       isUpdate,
-      previousAdjective: isUpdate ? existingSelection.adjective : null
+      previousAdjective: isUpdate ? existingSelection?.adjective : null
     });
 
   } catch (error) {
@@ -430,15 +455,21 @@ const getIceBreakingPrompt = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// Get available adjectives for a profile (with user engagement logic)
+// Get available adjectives for a profile (with session-based persistence)
 const getAvailableAdjectives = async (req: Request, res: Response): Promise<void> => {
   try {
     const { targetUserId } = req.params;
+    const { sessionId } = req.query;
     const currentUserId = (req as any).user.id;
 
     if (!targetUserId) {
       res.status(400).json({ success: false, message: 'Target user ID is required' });
       return;
+    }
+
+    // Clean up expired sessions periodically (10% chance to avoid performance impact)
+    if (Math.random() < 0.1) {
+      await cleanupExpiredSessions();
     }
 
     // Get current user and target user for gender validation
@@ -475,26 +506,56 @@ const getAvailableAdjectives = async (req: Request, res: Response): Promise<void
     });
 
     let adjectives: string[] = [];
+    let finalSessionId = sessionId as string || '';
 
-    if (targetUserSelection) {
-      // Target user has selected an adjective for current user: show that + 3 random
-      const targetSelectedAdjective = targetUserSelection.adjective;
-      const remainingAdjectives = allowedAdjectives.filter(adj => adj !== targetSelectedAdjective);
-      
-      // Shuffle and take 3 random
-      const shuffled = remainingAdjectives.sort(() => 0.5 - Math.random());
-      const randomAdjectives = shuffled.slice(0, 3);
-      
-      adjectives = [targetSelectedAdjective, ...randomAdjectives];
+    // Check if session exists and is not expired
+    let session = null;
+    if (sessionId) {
+      session = await AdjectiveSession.findOne({
+        where: {
+          userId: currentUserId,
+          targetUserId: parseInt(targetUserId),
+          sessionId: sessionId as string,
+          expiresAt: {
+            [Op.gt]: new Date()
+          }
+        }
+      });
+    }
+
+    if (session) {
+      // Use existing session adjectives
+      adjectives = session.adjectives;
     } else {
-      // No selection from target user: show 4 random adjectives
-      const shuffled = allowedAdjectives.sort(() => 0.5 - Math.random());
-      adjectives = shuffled.slice(0, 4);
+      // Generate new session with fresh adjectives
+      finalSessionId = generateSessionId();
+      
+      if (targetUserSelection) {
+        // Target user has selected an adjective for current user: show that + 3 random
+        const targetSelectedAdjective = targetUserSelection.adjective;
+        const remainingAdjectives = allowedAdjectives.filter(adj => adj !== targetSelectedAdjective);
+        
+        const randomAdjectives = generateRandomAdjectives(remainingAdjectives, 3);
+        adjectives = [targetSelectedAdjective, ...randomAdjectives];
+      } else {
+        // No selection from target user: show 4 random adjectives
+        adjectives = generateRandomAdjectives(allowedAdjectives, 4);
+      }
+
+      // Store new session in database
+      await AdjectiveSession.create({
+        userId: currentUserId,
+        targetUserId: parseInt(targetUserId),
+        sessionId: finalSessionId,
+        adjectives: adjectives,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+      });
     }
 
     res.json({
       success: true,
       adjectives,
+      sessionId: finalSessionId,
       hasTargetUserSelection: !!targetUserSelection,
       targetUserSelection: targetUserSelection?.adjective || null,
       hasCurrentUserSelection: !!currentUserSelection,

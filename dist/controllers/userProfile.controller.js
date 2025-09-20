@@ -178,11 +178,11 @@ const getUserProfileByUsername = async (req, res) => {
             name: user.name,
             username: user.username,
             email: isOwnProfile ? user.email : undefined, // Hide email for other users
-            university: user.university ? {
-                id: user.university.id,
-                name: user.university.name,
-                domain: user.university.domain,
-                country: user.university.country
+            university: user.userUniversity ? {
+                id: user.userUniversity.id,
+                name: user.userUniversity.name,
+                domain: user.userUniversity.domain,
+                country: user.userUniversity.country
             } : null,
             degree: user.degree,
             year: user.year,

@@ -4,6 +4,7 @@ import UserImage from './userImage.model';
 import Connection from './connection.model';
 import AdjectiveMatch from './adjectiveMatch.model';
 import AdjectiveSelection from './adjectiveSelection.model';
+import AdjectiveSession from './adjectiveSession.model';
 import Match from './match.model';
 import Interaction from './interaction.model';
 import ConnectionRequest from './connectionRequest.model';
@@ -40,6 +41,12 @@ export function setupAssociations() {
   AdjectiveSelection.belongsTo(User, { foreignKey: 'targetUserId', as: 'adjectiveSelectionTargetUser' });
   User.hasMany(AdjectiveSelection, { foreignKey: 'userId', as: 'adjectiveSelections' });
   User.hasMany(AdjectiveSelection, { foreignKey: 'targetUserId', as: 'adjectiveSelectionsReceived' });
+
+  // AdjectiveSession associations
+  AdjectiveSession.belongsTo(User, { foreignKey: 'userId', as: 'adjectiveSessionUser' });
+  AdjectiveSession.belongsTo(User, { foreignKey: 'targetUserId', as: 'adjectiveSessionTargetUser' });
+  User.hasMany(AdjectiveSession, { foreignKey: 'userId', as: 'adjectiveSessions' });
+  User.hasMany(AdjectiveSession, { foreignKey: 'targetUserId', as: 'adjectiveSessionsReceived' });
 
   // Match associations
   Match.belongsTo(User, { foreignKey: 'userId1', as: 'matchUser1' });

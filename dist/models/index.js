@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserUnreadCount = exports.GroupMessageRead = exports.GroupMessage = exports.GroupMember = exports.Group = exports.Event = exports.Payment = exports.Booking = exports.UserOnlineStatus = exports.Message = exports.Conversation = exports.NotificationReadStatus = exports.ConnectionRequest = exports.Interaction = exports.Match = exports.AdjectiveSelection = exports.AdjectiveMatch = exports.Connection = exports.UserImage = exports.University = exports.User = void 0;
+exports.UserUnreadCount = exports.GroupMessageRead = exports.GroupMessage = exports.GroupMember = exports.Group = exports.Event = exports.Payment = exports.Booking = exports.UserOnlineStatus = exports.Message = exports.Conversation = exports.NotificationReadStatus = exports.ConnectionRequest = exports.Interaction = exports.Match = exports.AdjectiveSession = exports.AdjectiveSelection = exports.AdjectiveMatch = exports.Connection = exports.UserImage = exports.University = exports.User = void 0;
 // Import all models to ensure they are initialized
 const user_model_1 = __importDefault(require("./user.model"));
 exports.User = user_model_1.default;
@@ -17,6 +17,8 @@ const adjectiveMatch_model_1 = __importDefault(require("./adjectiveMatch.model")
 exports.AdjectiveMatch = adjectiveMatch_model_1.default;
 const adjectiveSelection_model_1 = __importDefault(require("./adjectiveSelection.model"));
 exports.AdjectiveSelection = adjectiveSelection_model_1.default;
+const adjectiveSession_model_1 = __importDefault(require("./adjectiveSession.model"));
+exports.AdjectiveSession = adjectiveSession_model_1.default;
 const match_model_1 = __importDefault(require("./match.model"));
 exports.Match = match_model_1.default;
 const interaction_model_1 = __importDefault(require("./interaction.model"));

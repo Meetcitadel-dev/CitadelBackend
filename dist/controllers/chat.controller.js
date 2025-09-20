@@ -359,7 +359,7 @@ class ChatController {
             // Get the other user in the conversation
             const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
             // Update unread count for the recipient
-            await unreadCount_service_1.default.updateDirectChatUnreadCount(conversationId, userId, otherUserId, newMessage.id);
+            await unreadCount_service_1.default.updateDirectChatUnreadCount(Number(conversationId), userId, otherUserId, newMessage.id);
             // Emit real-time message to recipient if online
             console.log(`📡 Chat Controller - Checking if user ${otherUserId} is online...`);
             if (websocket_service_1.default.isUserOnline(otherUserId)) {
@@ -437,7 +437,7 @@ class ChatController {
                 }
             });
             // Reset unread count for this user in this conversation
-            await unreadCount_service_1.default.resetUnreadCount(userId, conversationId, false);
+            await unreadCount_service_1.default.resetUnreadCount(userId, Number(conversationId), false);
             // Notify sender that messages were read (real-time)
             if (websocket_service_1.default.isUserOnline(otherUserId)) {
                 websocket_service_1.default.emitToUser(otherUserId, 'messages_read', {

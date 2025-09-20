@@ -5,6 +5,7 @@ import UserImage from './userImage.model';
 import Connection from './connection.model';
 import AdjectiveMatch from './adjectiveMatch.model';
 import AdjectiveSelection from './adjectiveSelection.model';
+import AdjectiveSession from './adjectiveSession.model';
 import Match from './match.model';
 import Interaction from './interaction.model';
 import ConnectionRequest from './connectionRequest.model';
@@ -32,6 +33,7 @@ export {
   Connection,
   AdjectiveMatch,
   AdjectiveSelection,
+  AdjectiveSession,
   Match,
   Interaction,
   ConnectionRequest,

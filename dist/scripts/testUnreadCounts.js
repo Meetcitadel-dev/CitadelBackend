@@ -52,9 +52,10 @@ async function createTestUsers() {
 }
 async function testUnreadCounts() {
     console.log('🧪 Starting Unread Count Test...\n');
+    let users = [];
     try {
         // Create test users
-        const users = await createTestUsers();
+        users = await createTestUsers();
         if (users.length < 2) {
             console.error('❌ Need at least 2 users for testing');
             return;
