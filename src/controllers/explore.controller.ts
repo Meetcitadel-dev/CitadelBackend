@@ -6,6 +6,7 @@ import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
 import Interaction from '../models/interaction.model';
+import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 import { Op } from 'sequelize';
 
 // Adjective pool for matching
@@ -123,6 +124,51 @@ const getSelectedAdjectives = async (userId1: number, userId2: number): Promise<
   });
   
   return adjectives.map(adj => adj.adjective);
+};
+
+// Helper function to detect if a URL is from UploadThing
+const isUploadThingUrl = (url: string): boolean => {
+  return url && url.includes('utfs.io');
+};
+
+// Helper function to regenerate fresh URLs for images
+const regenerateImageUrls = async (images: any[]): Promise<any[]> => {
+  return Promise.all(
+    images.map(async (img) => {
+      // Check if this specific image is from UploadThing
+      if (isUploadThingUrl(img.cloudfrontUrl)) {
+        // UploadThing URLs are permanent, return as-is
+        return {
+          id: img.id,
+          cloudfrontUrl: img.cloudfrontUrl,
+          originalName: img.originalName,
+          mimeType: img.mimeType,
+          fileSize: img.fileSize,
+          createdAt: img.createdAt,
+          updatedAt: img.updatedAt
+        };
+      }
+      
+      // For S3/CloudFront images, regenerate fresh signed URLs
+      let freshUrl;
+      try {
+        freshUrl = generateCloudFrontSignedUrl(img.s3Key);
+      } catch (error) {
+        console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
+        freshUrl = generateS3SignedUrl(img.s3Key);
+      }
+      
+      return {
+        id: img.id,
+        cloudfrontUrl: freshUrl,
+        originalName: img.originalName,
+        mimeType: img.mimeType,
+        fileSize: img.fileSize,
+        createdAt: img.createdAt,
+        updatedAt: img.updatedAt
+      };
+    })
+  );
 };
 
 // Fetch explore profiles with matching algorithm
@@ -318,13 +364,24 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
           const connectionState = await getConnectionState(currentUserId, user.id);
           const selectedAdjectives = await getSelectedAdjectives(currentUserId, user.id);
 
-          // Get profile image (first image or null)
-          const profileImage = (user as any).images && (user as any).images.length > 0 
-            ? (user as any).images[0].cloudfrontUrl 
-            : null;
+          // Regenerate fresh URLs for user images
+          const freshImages = (user as any).images && (user as any).images.length > 0 
+            ? await regenerateImageUrls((user as any).images)
+            : [];
 
-          // Get uploaded images
-          const uploadedImages = (user as any).images ? (user as any).images.map((img: any) => img.cloudfrontUrl) : [];
+          // Prefer UploadThing URLs exclusively if present
+          const utImages = freshImages.filter((img: any) => isUploadThingUrl(img.cloudfrontUrl));
+          const cfImages = freshImages.filter((img: any) => !isUploadThingUrl(img.cloudfrontUrl));
+
+          // Select profileImage from UploadThing first, else fallback to CloudFront
+          const profileImage = utImages.length > 0
+            ? utImages[0].cloudfrontUrl
+            : (cfImages.length > 0 ? cfImages[0].cloudfrontUrl : null);
+
+          // uploadedImages: only UploadThing if available; else all CloudFront
+          const uploadedImages = utImages.length > 0
+            ? utImages.map((img: any) => img.cloudfrontUrl)
+            : cfImages.map((img: any) => img.cloudfrontUrl);
 
           return {
             id: user.id,
