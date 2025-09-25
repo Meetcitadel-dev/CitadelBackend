@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import User from '../models/user.model';
+import UserImage from '../models/userImage.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import Match from '../models/match.model';
 import Connection from '../models/connection.model';
@@ -59,6 +60,12 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
             {
               model: University,
               as: 'userUniversity'
+            },
+            {
+              model: UserImage,
+              as: 'images',
+              attributes: ['cloudfrontUrl'],
+              required: false
             }
           ]
         }
@@ -103,8 +110,8 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
       id: request.id,
       requesterId: request.requesterId,
       requesterName: (request as any).requester?.name || 'Unknown User',
-      requesterLocation: (request as any).requester?.university?.name || 'Unknown University',
-      requesterProfileImage: (request as any).requester?.images?.[0]?.imageUrl || null,
+      requesterLocation: (request as any).requester?.userUniversity?.name || 'Unknown University',
+      requesterProfileImage: (request as any).requester?.images?.[0]?.cloudfrontUrl || null,
       status: request.status,
       createdAt: request.createdAt
     }));

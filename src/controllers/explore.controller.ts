@@ -127,8 +127,8 @@ const getSelectedAdjectives = async (userId1: number, userId2: number): Promise<
 };
 
 // Helper function to detect if a URL is from UploadThing
-const isUploadThingUrl = (url: string): boolean => {
-  return url && url.includes('utfs.io');
+const isUploadThingUrl = (url: string | undefined | null): boolean => {
+  return typeof url === 'string' && url.includes('utfs.io');
 };
 
 // Helper function to regenerate fresh URLs for images
@@ -248,44 +248,40 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       }
 
       // Add years filter
-      if (years) {
-        let yearsArray = years;
-        if (typeof years === 'string') {
-          yearsArray = [years];
-        } else if (Array.isArray(years)) {
-          yearsArray = years;
-        }
-        
+      if (years !== undefined) {
+        const yearsArray: string[] = Array.isArray(years)
+          ? (years as string[])
+          : typeof years === 'string'
+          ? [years]
+          : [];
+
         if (yearsArray.length > 0) {
-          // Map frontend year values to database values
-          const mappedYears = yearsArray.map(year => YEAR_MAPPING[year] || year);
+          const mappedYears = yearsArray.map((year: string) => YEAR_MAPPING[year] || year);
           whereClause.year = { [Op.in]: mappedYears };
         }
       }
 
       // Add universities filter
-      if (universities) {
-        let universitiesArray = universities;
-        if (typeof universities === 'string') {
-          universitiesArray = [universities];
-        } else if (Array.isArray(universities)) {
-          universitiesArray = universities;
-        }
-        
+      if (universities !== undefined) {
+        const universitiesArray: string[] = Array.isArray(universities)
+          ? (universities as string[])
+          : typeof universities === 'string'
+          ? [universities]
+          : [];
+
         if (universitiesArray.length > 0) {
           whereClause['$userUniversity.name$'] = { [Op.in]: universitiesArray };
         }
       }
 
       // Add skills filter
-      if (skills) {
-        let skillsArray = skills;
-        if (typeof skills === 'string') {
-          skillsArray = [skills];
-        } else if (Array.isArray(skills)) {
-          skillsArray = skills;
-        }
-        
+      if (skills !== undefined) {
+        const skillsArray: string[] = Array.isArray(skills)
+          ? (skills as string[])
+          : typeof skills === 'string'
+          ? [skills]
+          : [];
+
         if (skillsArray.length > 0) {
           whereClause.skills = { [Op.overlap]: skillsArray };
         }

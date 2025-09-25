@@ -106,7 +106,7 @@ const getSelectedAdjectives = async (userId1, userId2) => {
 };
 // Helper function to detect if a URL is from UploadThing
 const isUploadThingUrl = (url) => {
-    return url && url.includes('utfs.io');
+    return typeof url === 'string' && url.includes('utfs.io');
 };
 // Helper function to regenerate fresh URLs for images
 const regenerateImageUrls = async (images) => {
@@ -127,11 +127,11 @@ const regenerateImageUrls = async (images) => {
         // For S3/CloudFront images, regenerate fresh signed URLs
         let freshUrl;
         try {
-            freshUrl = s3_service_1.generateCloudFrontSignedUrl(img.s3Key);
+            freshUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
         }
         catch (error) {
             console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
-            freshUrl = s3_service_1.generateS3SignedUrl(img.s3Key);
+            freshUrl = (0, s3_service_1.generateS3SignedUrl)(img.s3Key);
         }
         return {
             id: img.id,
@@ -199,42 +199,35 @@ const getExploreProfiles = async (req, res) => {
             whereClause.gender = { [sequelize_1.Op.iLike]: gender.trim() };
         }
         // Add years filter
-        if (years) {
-            let yearsArray = years;
-            if (typeof years === 'string') {
-                yearsArray = [years];
-            }
-            else if (Array.isArray(years)) {
-                yearsArray = years;
-            }
+        if (years !== undefined) {
+            const yearsArray = Array.isArray(years)
+                ? years
+                : typeof years === 'string'
+                    ? [years]
+                    : [];
             if (yearsArray.length > 0) {
-                // Map frontend year values to database values
-                const mappedYears = yearsArray.map(year => YEAR_MAPPING[year] || year);
+                const mappedYears = yearsArray.map((year) => YEAR_MAPPING[year] || year);
                 whereClause.year = { [sequelize_1.Op.in]: mappedYears };
             }
         }
         // Add universities filter
-        if (universities) {
-            let universitiesArray = universities;
-            if (typeof universities === 'string') {
-                universitiesArray = [universities];
-            }
-            else if (Array.isArray(universities)) {
-                universitiesArray = universities;
-            }
+        if (universities !== undefined) {
+            const universitiesArray = Array.isArray(universities)
+                ? universities
+                : typeof universities === 'string'
+                    ? [universities]
+                    : [];
             if (universitiesArray.length > 0) {
                 whereClause['$userUniversity.name$'] = { [sequelize_1.Op.in]: universitiesArray };
             }
         }
         // Add skills filter
-        if (skills) {
-            let skillsArray = skills;
-            if (typeof skills === 'string') {
-                skillsArray = [skills];
-            }
-            else if (Array.isArray(skills)) {
-                skillsArray = skills;
-            }
+        if (skills !== undefined) {
+            const skillsArray = Array.isArray(skills)
+                ? skills
+                : typeof skills === 'string'
+                    ? [skills]
+                    : [];
             if (skillsArray.length > 0) {
                 whereClause.skills = { [sequelize_1.Op.overlap]: skillsArray };
             }
@@ -305,7 +298,7 @@ const getExploreProfiles = async (req, res) => {
             const freshImages = user.images && user.images.length > 0
                 ? await regenerateImageUrls(user.images)
                 : [];
-            // Prefer UploadThing URLs exclusively when present
+            // Prefer UploadThing URLs exclusively if present
             const utImages = freshImages.filter((img) => isUploadThingUrl(img.cloudfrontUrl));
             const cfImages = freshImages.filter((img) => !isUploadThingUrl(img.cloudfrontUrl));
             // Select profileImage from UploadThing first, else fallback to CloudFront

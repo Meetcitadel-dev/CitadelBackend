@@ -44,3 +44,57 @@ export const getUniversities = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: 'Server error', error: err });
   }
 };
+
+export const createUniversity = async (req: Request, res: Response) => {
+  try {
+    const { name, domain, country } = req.body;
+
+    // Validate required fields
+    if (!name || !domain || !country) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, domain, and country are required'
+      });
+    }
+
+    // Check if university already exists
+    const existingUniversity = await University.findOne({
+      where: {
+        [require('sequelize').Op.or]: [
+          { name: name },
+          { domain: domain }
+        ]
+      }
+    });
+
+    if (existingUniversity) {
+      return res.status(409).json({
+        success: false,
+        message: 'University with this name or domain already exists',
+        university: existingUniversity
+      });
+    }
+
+    // Create new university
+    const newUniversity = await University.create({
+      name,
+      domain,
+      country
+    });
+
+    // Clear cache to ensure fresh data
+    const pattern = 'universities:*';
+    const keys = await redisClient.keys(pattern);
+    if (keys.length > 0) {
+      await redisClient.del(keys);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'University created successfully',
+      university: newUniversity
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error', error: err });
+  }
+};

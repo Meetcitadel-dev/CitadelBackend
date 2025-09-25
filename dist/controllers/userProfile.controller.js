@@ -45,8 +45,19 @@ const getUserProfileByUsername = async (req, res) => {
             where: { userId: user.id },
             order: [['createdAt', 'DESC']],
         });
-        // Generate fresh signed URLs for all images
+        // Generate URLs per-image: preserve UploadThing URLs, sign only S3 images
         const imagesWithFreshUrls = await Promise.all(images.map(async (img) => {
+            const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+            if (isUploadThing) {
+                return {
+                    id: img.id,
+                    cloudfrontUrl: img.cloudfrontUrl,
+                    originalName: img.originalName,
+                    mimeType: img.mimeType,
+                    fileSize: img.fileSize,
+                    createdAt: img.createdAt
+                };
+            }
             let freshUrl;
             try {
                 freshUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);

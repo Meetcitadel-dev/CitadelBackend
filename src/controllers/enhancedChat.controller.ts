@@ -218,7 +218,7 @@ class EnhancedChatController {
       await NotificationReadStatus.create({
         userId: targetUserId,
         notificationType: 'connection_request',
-        referenceId: connection.id,
+        notificationId: connection.id,
         isRead: false,
         createdAt: new Date()
       });

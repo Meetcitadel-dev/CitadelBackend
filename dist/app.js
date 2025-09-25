@@ -24,6 +24,15 @@ const groupChat_routes_1 = __importDefault(require("./routes/groupChat.routes"))
 const payment_routes_1 = __importDefault(require("./routes/payment.routes"));
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)());
+// Loosen CSP for images so CloudFront/UploadThing can load
+app.use(helmet_1.default.contentSecurityPolicy({
+    useDefaults: true,
+    directives: {
+        ...helmet_1.default.contentSecurityPolicy.getDefaultDirectives(),
+        // Allow images from HTTPS and data URLs
+        'img-src': ["'self'", 'https:', 'data:'],
+    }
+}));
 app.use(express_1.default.json());
 app.use((0, cors_1.default)({ origin: 'http://localhost:5173', credentials: true }));
 // Connect to MongoDB

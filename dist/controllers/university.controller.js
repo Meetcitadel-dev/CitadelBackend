@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUniversities = void 0;
+exports.createUniversity = exports.getUniversities = void 0;
 const university_model_1 = __importDefault(require("../models/university.model"));
 const redis_1 = __importDefault(require("../config/redis"));
 const levenshtein_1 = require("../utils/levenshtein");
@@ -43,3 +43,52 @@ const getUniversities = async (req, res) => {
     }
 };
 exports.getUniversities = getUniversities;
+const createUniversity = async (req, res) => {
+    try {
+        const { name, domain, country } = req.body;
+        // Validate required fields
+        if (!name || !domain || !country) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name, domain, and country are required'
+            });
+        }
+        // Check if university already exists
+        const existingUniversity = await university_model_1.default.findOne({
+            where: {
+                [require('sequelize').Op.or]: [
+                    { name: name },
+                    { domain: domain }
+                ]
+            }
+        });
+        if (existingUniversity) {
+            return res.status(409).json({
+                success: false,
+                message: 'University with this name or domain already exists',
+                university: existingUniversity
+            });
+        }
+        // Create new university
+        const newUniversity = await university_model_1.default.create({
+            name,
+            domain,
+            country
+        });
+        // Clear cache to ensure fresh data
+        const pattern = 'universities:*';
+        const keys = await redis_1.default.keys(pattern);
+        if (keys.length > 0) {
+            await redis_1.default.del(keys);
+        }
+        return res.status(201).json({
+            success: true,
+            message: 'University created successfully',
+            university: newUniversity
+        });
+    }
+    catch (err) {
+        return res.status(500).json({ success: false, message: 'Server error', error: err });
+    }
+};
+exports.createUniversity = createUniversity;

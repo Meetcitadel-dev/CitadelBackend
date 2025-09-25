@@ -64,7 +64,7 @@ class GroupChatController {
       });
 
       const formattedConnections = connections.map(connection => {
-        const otherUser = connection.userId1 === userId ? connection.connectionUser2 : connection.connectionUser1;
+        const otherUser = connection.userId1 === userId ? (connection as any).connectionUser2 : (connection as any).connectionUser1;
         return {
           id: otherUser.id,
           name: otherUser.name || otherUser.username || 'Unknown User',
@@ -566,8 +566,8 @@ class GroupChatController {
         name: updatedGroupWithMembers!.name,
         description: updatedGroupWithMembers!.description,
         avatarUrl: updatedGroupWithMembers!.avatarUrl,
-        memberCount: updatedGroupWithMembers!.members!.length,
-        members: updatedGroupWithMembers!.members!.map((member: any) => ({
+        memberCount: (updatedGroupWithMembers as any).members.length,
+        members: (updatedGroupWithMembers as any).members.map((member: any) => ({
           id: member.member.id,
           name: member.member.name || member.member.username || 'Unknown User',
           location: 'IIT Delhi', // TODO: Add actual location
@@ -1085,7 +1085,7 @@ class GroupChatController {
       });
 
       // Filter out messages that are already read
-      const actuallyUnreadMessages = unreadMessages.filter(message => 
+      const actuallyUnreadMessages = unreadMessages.filter((message: any) => 
         !message.readStatuses || message.readStatuses.length === 0
       );
 

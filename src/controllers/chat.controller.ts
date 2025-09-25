@@ -333,7 +333,7 @@ class ChatController {
         ]
       });
 
-      const formattedMessages = messages.map(msg => ({
+      const formattedMessages = messages.map((msg: any) => ({
         id: msg.id,
         text: msg.text,
         isSent: msg.senderId === userId,

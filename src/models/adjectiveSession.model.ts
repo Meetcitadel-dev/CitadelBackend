@@ -33,7 +33,6 @@ AdjectiveSession.init(
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'user_id',
       references: {
         model: 'users',
         key: 'id',
@@ -42,7 +41,6 @@ AdjectiveSession.init(
     targetUserId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'target_user_id',
       references: {
         model: 'users',
         key: 'id',
@@ -51,7 +49,6 @@ AdjectiveSession.init(
     sessionId: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      field: 'session_id',
     },
     adjectives: {
       type: DataTypes.JSONB,
@@ -61,13 +58,11 @@ AdjectiveSession.init(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-      field: 'created_at',
     },
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
-      field: 'expires_at',
     },
   },
   {

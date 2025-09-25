@@ -963,7 +963,7 @@ class GroupChatController {
                 ]
             });
             // Filter out messages that are already read
-            const actuallyUnreadMessages = unreadMessages.filter(message => !message.readStatuses || message.readStatuses.length === 0);
+            const actuallyUnreadMessages = unreadMessages.filter((message) => !message.readStatuses || message.readStatuses.length === 0);
             console.log(`📖 [GROUP] Found ${actuallyUnreadMessages.length} unread messages`);
             // Mark messages as read
             if (actuallyUnreadMessages.length > 0) {

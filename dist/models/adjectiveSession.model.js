@@ -51,7 +51,7 @@ AdjectiveSession.init({
     sequelize: db_1.default,
     modelName: 'AdjectiveSession',
     tableName: 'adjective_sessions',
-    timestamps: true,
+    timestamps: false,
     indexes: [
         {
             unique: true,
