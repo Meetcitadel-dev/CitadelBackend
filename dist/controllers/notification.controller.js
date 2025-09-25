@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.markNotificationAsRead = exports.handleConnectionRequest = exports.getNotifications = void 0;
 const sequelize_1 = require("sequelize");
 const user_model_1 = __importDefault(require("../models/user.model"));
+const userImage_model_1 = __importDefault(require("../models/userImage.model"));
 const connectionRequest_model_1 = __importDefault(require("../models/connectionRequest.model"));
 const match_model_1 = __importDefault(require("../models/match.model"));
 const connection_model_1 = __importDefault(require("../models/connection.model"));
@@ -56,6 +57,12 @@ const getNotifications = async (req, res) => {
                         {
                             model: university_model_1.default,
                             as: 'userUniversity'
+                        },
+                        {
+                            model: userImage_model_1.default,
+                            as: 'images',
+                            attributes: ['cloudfrontUrl'],
+                            required: false
                         }
                     ]
                 }
@@ -97,8 +104,8 @@ const getNotifications = async (req, res) => {
             id: request.id,
             requesterId: request.requesterId,
             requesterName: request.requester?.name || 'Unknown User',
-            requesterLocation: request.requester?.university?.name || 'Unknown University',
-            requesterProfileImage: request.requester?.images?.[0]?.imageUrl || null,
+            requesterLocation: request.requester?.userUniversity?.name || 'Unknown University',
+            requesterProfileImage: request.requester?.images?.[0]?.cloudfrontUrl || null,
             status: request.status,
             createdAt: request.createdAt
         }));
