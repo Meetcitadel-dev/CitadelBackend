@@ -103,7 +103,10 @@ export const sendOtpController = async (req: Request, res: Response) => {
     
     return res.json({ success: true, message: 'OTP sent successfully', expiresIn });
   } catch (err: any) {
-    return res.status(429).json({ success: false, message: err.message });
+    const message = err?.message || 'Unknown error';
+    const isRateLimit = message.includes('recently sent') || message.includes('Maximum OTP attempts');
+    const status = isRateLimit ? 429 : 500;
+    return res.status(status).json({ success: false, message: isRateLimit ? message : 'Failed to send OTP' });
   }
 };
 
