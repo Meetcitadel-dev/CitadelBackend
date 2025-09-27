@@ -24,12 +24,13 @@ async function configureS3CORS() {
         {
           AllowedHeaders: ['*'],
           AllowedMethods: ['GET', 'HEAD'],
-          AllowedOrigins: [
-            'http://localhost:5173',  // Development
-            'http://localhost:3000',  // Alternative dev port
-            'https://yourdomain.com',  // Production (replace with your domain)
-            '*'  // For development - remove in production
-          ],
+          AllowedOrigins: process.env.ALLOWED_ORIGINS 
+            ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+            : [
+                'http://localhost:5173',  // Development
+                'http://localhost:3000',  // Alternative dev port
+                '*'  // For development - remove in production
+              ],
           ExposeHeaders: ['ETag'],
           MaxAgeSeconds: 3000
         }

@@ -6,7 +6,7 @@ function handler(event) {
     var headers = response.headers;
     
     // Add CORS headers
-    headers['access-control-allow-origin'] = {value: 'http://localhost:5173'};
+    headers['access-control-allow-origin'] = {value: 'https://meetcitadel.vercel.app'};
     headers['access-control-allow-methods'] = {value: 'GET, HEAD'};
     headers['access-control-allow-headers'] = {value: '*'};
     headers['access-control-max-age'] = {value: '3000'};

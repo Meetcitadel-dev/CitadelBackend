@@ -40,7 +40,9 @@ class WebSocketService {
   initialize(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: "http://localhost:5173",
+        origin: process.env.ALLOWED_ORIGINS 
+          ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+          : ["http://localhost:5173"], // Default to development
         methods: ["GET", "POST"],
         credentials: true
       }

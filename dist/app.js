@@ -34,7 +34,13 @@ app.use(helmet_1.default.contentSecurityPolicy({
     }
 }));
 app.use(express_1.default.json());
-app.use((0, cors_1.default)({ origin: 'http://localhost:5173', credentials: true }));
+app.use((0, cors_1.default)({
+    origin: [
+        'http://localhost:5173', // Development frontend
+        'https://meetcitadel.vercel.app' // Production frontend
+    ],
+    credentials: true
+}));
 // Connect to MongoDB
 (0, mongodb_1.default)();
 // Test endpoint
