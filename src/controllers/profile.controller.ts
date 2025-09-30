@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import User from '../models/user.model';
 import UserImage from '../models/userImage.model';
 import University from '../models/university.model';
+import UserImageSlot from '../models/userImageSlot.model';
+import sequelize from '../config/db';
 import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import Conversation from '../models/conversation.model';
@@ -151,6 +153,69 @@ export const getUserImages = async (req: Request, res: Response) => {
   }
 };
 
+export const assignImageToSlot = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { slot, userImageId } = req.body as { slot: number; userImageId: number };
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+      return res.status(400).json({ error: 'slot must be an integer between 0 and 4' });
+    }
+
+    // Verify image belongs to user
+    const image = await UserImage.findOne({ where: { id: userImageId, userId } });
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found for this user' });
+    }
+
+    await sequelize.transaction(async (t) => {
+      // Upsert mapping for (userId, slot)
+      const existing = await UserImageSlot.findOne({ where: { userId, slot }, transaction: t, lock: t.LOCK.UPDATE });
+      if (existing) {
+        existing.userImageId = image.id;
+        existing.assignedAt = new Date();
+        await existing.save({ transaction: t });
+      } else {
+        await UserImageSlot.create({ userId, slot, userImageId: image.id }, { transaction: t });
+      }
+    });
+
+    return res.json({ message: 'Slot assigned successfully' });
+  } catch (error) {
+    console.error('Error assigning image to slot:', error);
+    return res.status(500).json({ error: 'Failed to assign image to slot' });
+  }
+};
+
+export const clearImageSlot = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const slot = parseInt(req.params.slot, 10);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+      return res.status(400).json({ error: 'slot must be an integer between 0 and 4' });
+    }
+
+    const deleted = await UserImageSlot.destroy({ where: { userId, slot } });
+    if (deleted === 0) {
+      return res.status(404).json({ error: 'Slot not set' });
+    }
+
+    return res.json({ message: 'Slot cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing image slot:', error);
+    return res.status(500).json({ error: 'Failed to clear image slot' });
+  }
+};
+
 export const deleteUserImage = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
@@ -253,15 +318,34 @@ export const getMyProfile = async (req: Request, res: Response) => {
       university = await University.findByPk(user.universityId);
     }
 
-    // Fetch user images
-    const images = await UserImage.findAll({
+    // Fetch slot mappings and resolve images in slot order (0..4)
+    const slotMappings = await UserImageSlot.findAll({
+      where: { userId },
+      order: [['slot', 'ASC']],
+    });
+
+    const slotToImageId = new Map<number, number>();
+    for (const m of slotMappings) {
+      slotToImageId.set(m.slot, m.userImageId);
+    }
+
+    // Prefetch all images referenced by slots
+    const referencedIds = Array.from(slotToImageId.values());
+    const referencedImages = referencedIds.length
+      ? await UserImage.findAll({ where: { id: referencedIds } })
+      : [];
+    const idToImage = new Map<number, UserImage>();
+    for (const img of referencedImages) idToImage.set(img.id, img);
+
+    // For library or fallback (optional): still fetch recent images
+    const recentImages = await UserImage.findAll({
       where: { userId },
       order: [['createdAt', 'DESC']],
+      limit: 20,
     });
 
     const useUT = process.env.USE_UPLOADTHING === 'true';
-    const imagesWithFreshUrls = await Promise.all(
-      images.map(async (img) => {
+    const freshen = async (img: UserImage) => {
         if (useUT) {
           return {
             id: img.id,
@@ -287,8 +371,21 @@ export const getMyProfile = async (req: Request, res: Response) => {
           fileSize: img.fileSize,
           createdAt: img.createdAt
         };
+    };
+
+    // Build slots array length 5
+    const slots = await Promise.all(
+      Array.from({ length: 5 }, async (_, i) => {
+        const imageId = slotToImageId.get(i);
+        if (!imageId) return { slot: i, image: null };
+        const img = idToImage.get(imageId);
+        if (!img) return { slot: i, image: null };
+        const payload = await freshen(img);
+        return { slot: i, image: payload };
       })
     );
+
+    const library = await Promise.all(recentImages.map((img) => freshen(img)));
 
     // Prepare profile data
     const profileData = {
@@ -317,7 +414,8 @@ export const getMyProfile = async (req: Request, res: Response) => {
       friends: Array.isArray(user.friends) ? user.friends : [],
       isProfileComplete: user.isProfileComplete,
       isEmailVerified: user.isEmailVerified,
-      images: imagesWithFreshUrls,
+      images: library,
+      slots,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };

@@ -15,6 +15,10 @@ router.post('/upload', upload_middleware_1.uploadSingleImage, upload_middleware_
 router.get('/images', profile_controller_1.getUserImages);
 // Delete user image
 router.delete('/images/:imageId', profile_controller_1.deleteUserImage);
+// Assign image to slot (0..4)
+router.put('/images/slot', profile_controller_1.assignImageToSlot);
+// Clear a slot
+router.delete('/images/slot/:slot', profile_controller_1.clearImageSlot);
 // Get signed URL for image
 router.get('/images/:imageId/signed-url', profile_controller_1.getSignedUrl);
 // Test signed URL generation (for debugging)

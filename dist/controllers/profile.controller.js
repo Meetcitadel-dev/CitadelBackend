@@ -3,10 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAccount = exports.updateProfile = exports.testSignedUrl = exports.getMyProfile = exports.getSignedUrl = exports.deleteUserImage = exports.getUserImages = exports.uploadUserImage = void 0;
+exports.deleteAccount = exports.updateProfile = exports.testSignedUrl = exports.getMyProfile = exports.getSignedUrl = exports.deleteUserImage = exports.clearImageSlot = exports.assignImageToSlot = exports.getUserImages = exports.uploadUserImage = void 0;
 const user_model_1 = __importDefault(require("../models/user.model"));
 const userImage_model_1 = __importDefault(require("../models/userImage.model"));
 const university_model_1 = __importDefault(require("../models/university.model"));
+const userImageSlot_model_1 = __importDefault(require("../models/userImageSlot.model"));
+const db_1 = __importDefault(require("../config/db"));
 const connection_model_1 = __importDefault(require("../models/connection.model"));
 const connectionRequest_model_1 = __importDefault(require("../models/connectionRequest.model"));
 const conversation_model_1 = __importDefault(require("../models/conversation.model"));
@@ -147,6 +149,63 @@ const getUserImages = async (req, res) => {
     }
 };
 exports.getUserImages = getUserImages;
+const assignImageToSlot = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const { slot, userImageId } = req.body;
+        if (!userId) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+        if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+            return res.status(400).json({ error: 'slot must be an integer between 0 and 4' });
+        }
+        // Verify image belongs to user
+        const image = await userImage_model_1.default.findOne({ where: { id: userImageId, userId } });
+        if (!image) {
+            return res.status(404).json({ error: 'Image not found for this user' });
+        }
+        await db_1.default.transaction(async (t) => {
+            // Upsert mapping for (userId, slot)
+            const existing = await userImageSlot_model_1.default.findOne({ where: { userId, slot }, transaction: t, lock: t.LOCK.UPDATE });
+            if (existing) {
+                existing.userImageId = image.id;
+                existing.assignedAt = new Date();
+                await existing.save({ transaction: t });
+            }
+            else {
+                await userImageSlot_model_1.default.create({ userId, slot, userImageId: image.id }, { transaction: t });
+            }
+        });
+        return res.json({ message: 'Slot assigned successfully' });
+    }
+    catch (error) {
+        console.error('Error assigning image to slot:', error);
+        return res.status(500).json({ error: 'Failed to assign image to slot' });
+    }
+};
+exports.assignImageToSlot = assignImageToSlot;
+const clearImageSlot = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const slot = parseInt(req.params.slot, 10);
+        if (!userId) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+        if (!Number.isInteger(slot) || slot < 0 || slot > 4) {
+            return res.status(400).json({ error: 'slot must be an integer between 0 and 4' });
+        }
+        const deleted = await userImageSlot_model_1.default.destroy({ where: { userId, slot } });
+        if (deleted === 0) {
+            return res.status(404).json({ error: 'Slot not set' });
+        }
+        return res.json({ message: 'Slot cleared successfully' });
+    }
+    catch (error) {
+        console.error('Error clearing image slot:', error);
+        return res.status(500).json({ error: 'Failed to clear image slot' });
+    }
+};
+exports.clearImageSlot = clearImageSlot;
 const deleteUserImage = async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -240,13 +299,31 @@ const getMyProfile = async (req, res) => {
         if (user.universityId) {
             university = await university_model_1.default.findByPk(user.universityId);
         }
-        // Fetch user images
-        const images = await userImage_model_1.default.findAll({
+        // Fetch slot mappings and resolve images in slot order (0..4)
+        const slotMappings = await userImageSlot_model_1.default.findAll({
+            where: { userId },
+            order: [['slot', 'ASC']],
+        });
+        const slotToImageId = new Map();
+        for (const m of slotMappings) {
+            slotToImageId.set(m.slot, m.userImageId);
+        }
+        // Prefetch all images referenced by slots
+        const referencedIds = Array.from(slotToImageId.values());
+        const referencedImages = referencedIds.length
+            ? await userImage_model_1.default.findAll({ where: { id: referencedIds } })
+            : [];
+        const idToImage = new Map();
+        for (const img of referencedImages)
+            idToImage.set(img.id, img);
+        // For library or fallback (optional): still fetch recent images
+        const recentImages = await userImage_model_1.default.findAll({
             where: { userId },
             order: [['createdAt', 'DESC']],
+            limit: 20,
         });
         const useUT = process.env.USE_UPLOADTHING === 'true';
-        const imagesWithFreshUrls = await Promise.all(images.map(async (img) => {
+        const freshen = async (img) => {
             if (useUT) {
                 return {
                     id: img.id,
@@ -273,7 +350,19 @@ const getMyProfile = async (req, res) => {
                 fileSize: img.fileSize,
                 createdAt: img.createdAt
             };
+        };
+        // Build slots array length 5
+        const slots = await Promise.all(Array.from({ length: 5 }, async (_, i) => {
+            const imageId = slotToImageId.get(i);
+            if (!imageId)
+                return { slot: i, image: null };
+            const img = idToImage.get(imageId);
+            if (!img)
+                return { slot: i, image: null };
+            const payload = await freshen(img);
+            return { slot: i, image: payload };
         }));
+        const library = await Promise.all(recentImages.map((img) => freshen(img)));
         // Prepare profile data
         const profileData = {
             id: user.id,
@@ -301,7 +390,8 @@ const getMyProfile = async (req, res) => {
             friends: Array.isArray(user.friends) ? user.friends : [],
             isProfileComplete: user.isProfileComplete,
             isEmailVerified: user.isEmailVerified,
-            images: imagesWithFreshUrls,
+            images: library,
+            slots,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };

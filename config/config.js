@@ -7,7 +7,10 @@ module.exports = {
     database: process.env.POSTGRES_DB,
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
-    dialect: 'postgres'
+    dialect: 'postgres',
+    dialectOptions: process.env.POSTGRES_SSL === 'true'
+      ? { ssl: { require: true, rejectUnauthorized: false } }
+      : {}
   },
   production: {
     use_env_variable: 'DATABASE_URL',

@@ -50,10 +50,9 @@ class WebSocketService {
     initialize(server) {
         this.io = new socket_io_1.Server(server, {
             cors: {
-                origin: [
-                    "http://localhost:5173", // Development frontend
-                    "https://meetcitadel.vercel.app" // Production frontend
-                ],
+                origin: process.env.ALLOWED_ORIGINS
+                    ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+                    : ["http://localhost:5173"], // Default to development
                 methods: ["GET", "POST"],
                 credentials: true
             }

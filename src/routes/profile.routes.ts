@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { uploadUserImage, getUserImages, deleteUserImage, getSignedUrl, getMyProfile, testSignedUrl, updateProfile, deleteAccount } from '../controllers/profile.controller';
+import { uploadUserImage, getUserImages, deleteUserImage, getSignedUrl, getMyProfile, testSignedUrl, updateProfile, deleteAccount, assignImageToSlot, clearImageSlot } from '../controllers/profile.controller';
 import { uploadSingleImage, handleUploadError } from '../middlewares/upload.middleware';
 import { authenticateToken } from '../middlewares/auth.middleware';
 
@@ -19,6 +19,12 @@ router.get('/images', getUserImages);
 
 // Delete user image
 router.delete('/images/:imageId', deleteUserImage);
+
+// Assign image to slot (0..4)
+router.put('/images/slot', assignImageToSlot);
+
+// Clear a slot
+router.delete('/images/slot/:slot', clearImageSlot);
 
 // Get signed URL for image
 router.get('/images/:imageId/signed-url', getSignedUrl);
