@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateUsername = exports.generateUsername = exports.getMutualFriends = exports.getUserProfileByUsername = void 0;
 const user_model_1 = __importDefault(require("../models/user.model"));
 const userImage_model_1 = __importDefault(require("../models/userImage.model"));
+const userImageSlot_model_1 = __importDefault(require("../models/userImageSlot.model"));
 const university_model_1 = __importDefault(require("../models/university.model"));
 const connection_model_1 = __importDefault(require("../models/connection.model"));
 const connectionRequest_model_1 = __importDefault(require("../models/connectionRequest.model"));
@@ -40,15 +41,33 @@ const getUserProfileByUsername = async (req, res) => {
         }
         // Check if user is viewing their own profile
         const isOwnProfile = currentUserId === user.id;
-        // Get user images
-        const images = await userImage_model_1.default.findAll({
+        // Fetch slot mappings and resolve images in slot order (0..4)
+        const slotMappings = await userImageSlot_model_1.default.findAll({
+            where: { userId: user.id },
+            order: [['slot', 'ASC']],
+        });
+        const slotToImageId = new Map();
+        for (const m of slotMappings) {
+            slotToImageId.set(m.slot, m.userImageId);
+        }
+        // Prefetch all images referenced by slots
+        const referencedIds = Array.from(slotToImageId.values());
+        const referencedImages = referencedIds.length
+            ? await userImage_model_1.default.findAll({ where: { id: referencedIds } })
+            : [];
+        const idToImage = new Map();
+        for (const img of referencedImages)
+            idToImage.set(img.id, img);
+        // For library or fallback (optional): still fetch recent images
+        const recentImages = await userImage_model_1.default.findAll({
             where: { userId: user.id },
             order: [['createdAt', 'DESC']],
+            limit: 20,
         });
-        // Generate URLs per-image: preserve UploadThing URLs, sign only S3 images
-        const imagesWithFreshUrls = await Promise.all(images.map(async (img) => {
+        const useUT = process.env.USE_UPLOADTHING === 'true';
+        const freshen = async (img) => {
             const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
-            if (isUploadThing) {
+            if (isUploadThing || useUT) {
                 return {
                     id: img.id,
                     cloudfrontUrl: img.cloudfrontUrl,
@@ -74,7 +93,19 @@ const getUserProfileByUsername = async (req, res) => {
                 fileSize: img.fileSize,
                 createdAt: img.createdAt
             };
+        };
+        // Build slots array length 5
+        const slots = await Promise.all(Array.from({ length: 5 }, async (_, i) => {
+            const imageId = slotToImageId.get(i);
+            if (!imageId)
+                return { slot: i, image: null };
+            const img = idToImage.get(imageId);
+            if (!img)
+                return { slot: i, image: null };
+            const payload = await freshen(img);
+            return { slot: i, image: payload };
         }));
+        const imagesWithFreshUrls = await Promise.all(recentImages.map((img) => freshen(img)));
         // Get connection state between current user and target user
         let connectionState = null;
         if (!isOwnProfile) {
@@ -213,6 +244,7 @@ const getUserProfileByUsername = async (req, res) => {
             isProfileComplete: user.isProfileComplete,
             isEmailVerified: isOwnProfile ? user.isEmailVerified : undefined,
             images: imagesWithFreshUrls,
+            slots,
             connectionState,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt

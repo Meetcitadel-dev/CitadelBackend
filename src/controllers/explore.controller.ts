@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import User from '../models/user.model';
 import University from '../models/university.model';
 import UserImage from '../models/userImage.model';
+import UserImageSlot from '../models/userImageSlot.model';
 import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
@@ -200,6 +201,96 @@ const regenerateImageUrls = async (images: any[]): Promise<any[]> => {
   );
 };
 
+// Helper function to get slot-organized images for a user
+const getSlotOrganizedImages = async (userId: number): Promise<{ profileImage: string | null, uploadedImages: string[] }> => {
+  try {
+    // Fetch slot mappings and resolve images in slot order (0..4)
+    const slotMappings = await UserImageSlot.findAll({
+      where: { userId },
+      order: [['slot', 'ASC']],
+    });
+
+    const slotToImageId = new Map<number, number>();
+    for (const m of slotMappings) {
+      slotToImageId.set(m.slot, m.userImageId);
+    }
+
+    // Prefetch all images referenced by slots
+    const referencedIds = Array.from(slotToImageId.values());
+    const referencedImages = referencedIds.length
+      ? await UserImage.findAll({ where: { id: referencedIds } })
+      : [];
+
+    const idToImage = new Map<number, UserImage>();
+    for (const img of referencedImages) idToImage.set(img.id, img);
+
+    const useUT = process.env.USE_UPLOADTHING === 'true';
+    const freshen = async (img: UserImage) => {
+      const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+      if (isUploadThing || useUT) {
+        return {
+          id: img.id,
+          cloudfrontUrl: img.cloudfrontUrl,
+          originalName: img.originalName,
+          mimeType: img.mimeType,
+          fileSize: img.fileSize,
+          createdAt: img.createdAt
+        };
+      }
+
+      let freshUrl: string;
+      try {
+        freshUrl = generateCloudFrontSignedUrl(img.s3Key);
+      } catch (error) {
+        console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
+        freshUrl = generateS3SignedUrl(img.s3Key);
+      }
+
+      return {
+        id: img.id,
+        cloudfrontUrl: freshUrl,
+        originalName: img.originalName,
+        mimeType: img.mimeType,
+        fileSize: img.fileSize,
+        createdAt: img.createdAt
+      };
+    };
+
+    // Build slots array length 5
+    const slots = await Promise.all(
+      Array.from({ length: 5 }, async (_, i) => {
+        const imageId = slotToImageId.get(i);
+        if (!imageId) return { slot: i, image: null };
+        const img = idToImage.get(imageId);
+        if (!img) return { slot: i, image: null };
+        const payload = await freshen(img);
+        return { slot: i, image: payload };
+      })
+    );
+
+    // Extract slot images (only non-null slots)
+    const slotImages = slots
+      .filter(slot => slot.image !== null)
+      .map(slot => slot.image!.cloudfrontUrl);
+
+    // Use slot[0] as profile image, fallback to first available slot
+    const profileImage = slots[0]?.image?.cloudfrontUrl || 
+                        slots.find(slot => slot.image !== null)?.image?.cloudfrontUrl || 
+                        null;
+
+    return {
+      profileImage,
+      uploadedImages: slotImages
+    };
+  } catch (error) {
+    console.error('Error getting slot organized images:', error);
+    return {
+      profileImage: null,
+      uploadedImages: []
+    };
+  }
+};
+
 // Fetch explore profiles with matching algorithm
 const getExploreProfiles = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -385,24 +476,8 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
           const connectionState = await getConnectionState(currentUserId, user.id);
           const selectedAdjectives = await getSelectedAdjectives(currentUserId, user.id);
 
-          // Regenerate fresh URLs for user images
-          const freshImages = (user as any).images && (user as any).images.length > 0 
-            ? await regenerateImageUrls((user as any).images)
-            : [];
-
-          // Prefer UploadThing URLs exclusively if present
-          const utImages = freshImages.filter((img: any) => isUploadThingUrl(img.cloudfrontUrl));
-          const cfImages = freshImages.filter((img: any) => !isUploadThingUrl(img.cloudfrontUrl));
-
-          // Select profileImage from UploadThing first, else fallback to CloudFront
-          const profileImage = utImages.length > 0
-            ? utImages[0].cloudfrontUrl
-            : (cfImages.length > 0 ? cfImages[0].cloudfrontUrl : null);
-
-          // uploadedImages: only UploadThing if available; else all CloudFront
-          const uploadedImages = utImages.length > 0
-            ? utImages.map((img: any) => img.cloudfrontUrl)
-            : cfImages.map((img: any) => img.cloudfrontUrl);
+          // Get slot-organized images for this user
+          const { profileImage, uploadedImages } = await getSlotOrganizedImages(user.id);
 
           return {
             id: user.id,

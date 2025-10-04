@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import User from '../models/user.model';
 import UserImage from '../models/userImage.model';
+import UserImageSlot from '../models/userImageSlot.model';
 import University from '../models/university.model';
 import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
@@ -41,45 +42,77 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     // Check if user is viewing their own profile
     const isOwnProfile = currentUserId === user.id;
 
-    // Get user images
-    const images = await UserImage.findAll({
+    // Fetch slot mappings and resolve images in slot order (0..4)
+    const slotMappings = await UserImageSlot.findAll({
       where: { userId: user.id },
-      order: [['createdAt', 'DESC']],
+      order: [['slot', 'ASC']],
     });
 
-    // Generate URLs per-image: preserve UploadThing URLs, sign only S3 images
-    const imagesWithFreshUrls = await Promise.all(
-      images.map(async (img) => {
-        const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
-        if (isUploadThing) {
-          return {
-            id: img.id,
-            cloudfrontUrl: img.cloudfrontUrl,
-            originalName: img.originalName,
-            mimeType: img.mimeType,
-            fileSize: img.fileSize,
-            createdAt: img.createdAt
-          };
-        }
+    const slotToImageId = new Map<number, number>();
+    for (const m of slotMappings) {
+      slotToImageId.set(m.slot, m.userImageId);
+    }
 
-        let freshUrl: string;
-        try {
-          freshUrl = generateCloudFrontSignedUrl(img.s3Key);
-        } catch (error) {
-          console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
-          freshUrl = generateS3SignedUrl(img.s3Key);
-        }
+    // Prefetch all images referenced by slots
+    const referencedIds = Array.from(slotToImageId.values());
+    const referencedImages = referencedIds.length
+      ? await UserImage.findAll({ where: { id: referencedIds } })
+      : [];
+    const idToImage = new Map<number, UserImage>();
+    for (const img of referencedImages) idToImage.set(img.id, img);
 
+    // For library or fallback (optional): still fetch recent images
+    const recentImages = await UserImage.findAll({
+      where: { userId: user.id },
+      order: [['createdAt', 'DESC']],
+      limit: 20,
+    });
+
+    const useUT = process.env.USE_UPLOADTHING === 'true';
+    const freshen = async (img: UserImage) => {
+      const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+      if (isUploadThing || useUT) {
         return {
           id: img.id,
-          cloudfrontUrl: freshUrl,
+          cloudfrontUrl: img.cloudfrontUrl,
           originalName: img.originalName,
           mimeType: img.mimeType,
           fileSize: img.fileSize,
           createdAt: img.createdAt
         };
+      }
+
+      let freshUrl: string;
+      try {
+        freshUrl = generateCloudFrontSignedUrl(img.s3Key);
+      } catch (error) {
+        console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
+        freshUrl = generateS3SignedUrl(img.s3Key);
+      }
+
+      return {
+        id: img.id,
+        cloudfrontUrl: freshUrl,
+        originalName: img.originalName,
+        mimeType: img.mimeType,
+        fileSize: img.fileSize,
+        createdAt: img.createdAt
+      };
+    };
+
+    // Build slots array length 5
+    const slots = await Promise.all(
+      Array.from({ length: 5 }, async (_, i) => {
+        const imageId = slotToImageId.get(i);
+        if (!imageId) return { slot: i, image: null };
+        const img = idToImage.get(imageId);
+        if (!img) return { slot: i, image: null };
+        const payload = await freshen(img);
+        return { slot: i, image: payload };
       })
     );
+
+    const imagesWithFreshUrls = await Promise.all(recentImages.map((img) => freshen(img)));
 
     // Get connection state between current user and target user
     let connectionState = null;
@@ -236,6 +269,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       isProfileComplete: user.isProfileComplete,
       isEmailVerified: isOwnProfile ? user.isEmailVerified : undefined,
       images: imagesWithFreshUrls,
+      slots,
       connectionState,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
