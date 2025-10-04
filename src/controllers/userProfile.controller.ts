@@ -116,7 +116,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
         if (request) {
           connectionState = {
             id: request.id,
-            status: request.status === 'pending' ? 'requested' : request.status,
+            status: request.status === 'pending' ? 'requested' : (request.status === 'accepted' ? 'connected' : request.status),
             requesterId: request.requesterId,
             targetId: request.targetId,
             createdAt: request.createdAt,

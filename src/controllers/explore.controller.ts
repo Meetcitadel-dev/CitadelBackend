@@ -101,6 +101,7 @@ const calculateMatchScore = (user1: any, user2: any): number => {
 
 // Get connection state between two users
 const getConnectionState = async (userId1: number, userId2: number): Promise<any> => {
+  // First check the Connection table
   const connection = await Connection.findOne({
     where: {
       [Op.or]: [
@@ -109,8 +110,36 @@ const getConnectionState = async (userId1: number, userId2: number): Promise<any
       ]
     }
   });
-  
-  return connection;
+
+  if (connection) {
+    return connection;
+  }
+
+  // If no connection found, check ConnectionRequest table
+  const request = await ConnectionRequest.findOne({
+    where: {
+      [Op.or]: [
+        { requesterId: userId1, targetId: userId2 },
+        { requesterId: userId2, targetId: userId1 }
+      ]
+    }
+  });
+
+  if (request) {
+    // Convert ConnectionRequest to Connection-like format
+    return {
+      id: request.id,
+      userId1: request.requesterId,
+      userId2: request.targetId,
+      status: request.status === 'pending' ? 'requested' : (request.status === 'accepted' ? 'connected' : request.status),
+      requesterId: request.requesterId,
+      targetId: request.targetId,
+      createdAt: request.createdAt,
+      updatedAt: request.updatedAt
+    };
+  }
+
+  return null;
 };
 
 // Get selected adjectives for a user pair
@@ -290,7 +319,8 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       console.log(`   Where clause:`, JSON.stringify(whereClause, null, 2));
 
       // Get all available users with filters and view count
-      let users = await User.findAll({
+      // First get ALL users (without limit/offset) to properly sort connected users to the end
+      let allUsers = await User.findAll({
         where: whereClause,
         include: [
           {
@@ -304,9 +334,6 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
             required: false
           }
         ],
-
-        limit: Number(limit),
-        offset: Number(offset),
         order: sortBy === 'match_score' ? [['createdAt', 'DESC']] : getSortOrder(sortBy as string)
       });
 
@@ -323,14 +350,14 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
             },
             isProfileComplete: true
           },
-                      include: [
-              {
-                model: University,
-                as: 'userUniversity',
-                where: {
-                  name: { [Op.iLike]: `%${searchTerm}%` }
-                }
-              },
+          include: [
+            {
+              model: University,
+              as: 'userUniversity',
+              where: {
+                name: { [Op.iLike]: `%${searchTerm}%` }
+              }
+            },
             {
               model: UserImage,
               as: 'images',
@@ -338,24 +365,22 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
               required: false
             }
           ],
-          limit: Number(limit),
-          offset: Number(offset),
           order: sortBy === 'match_score' ? [['createdAt', 'DESC']] : getSortOrder(sortBy as string)
         });
 
         // Combine and deduplicate results
-        const allUsers = [...users, ...usersByUniversity];
-        const uniqueUsers = allUsers.filter((user, index, self) => 
+        const combinedUsers = [...allUsers, ...usersByUniversity];
+        const uniqueUsers = combinedUsers.filter((user, index, self) => 
           index === self.findIndex(u => u.id === user.id)
         );
-        users = uniqueUsers.slice(0, Number(limit));
+        allUsers = uniqueUsers;
       }
 
-      console.log(`   Users found: ${users.length}`);
+      console.log(`   All users found: ${allUsers.length}`);
 
       // Process each user to add match score and connection state
       const profiles = await Promise.all(
-        users.map(async (user) => {
+        allUsers.map(async (user) => {
           const matchScore = calculateMatchScore(currentUser, user);
           const connectionState = await getConnectionState(currentUserId, user.id);
           const selectedAdjectives = await getSelectedAdjectives(currentUserId, user.id);
@@ -453,7 +478,13 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         shuffleInPlace(connectedProfiles);
       }
 
+      // Combine profiles with connected users at the end
       const reorderedProfiles = [...nonConnectedProfiles, ...connectedProfiles];
+      
+      // Apply pagination AFTER sorting to ensure connected users are at the end
+      const startIndex = Number(offset);
+      const endIndex = startIndex + Number(limit);
+      const paginatedProfiles = reorderedProfiles.slice(startIndex, endIndex);
 
       // Get total count for pagination
       const totalCount = await User.count({
@@ -469,14 +500,14 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       // Get available filters for frontend
       const availableFilters = await getAvailableFiltersHelper();
 
-      console.log(`   Final profiles to return: ${reorderedProfiles.length}`);
+      console.log(`   Final profiles to return: ${paginatedProfiles.length}`);
       console.log(`   Total count: ${totalCount}`);
-      console.log(`   Has more: ${profiles.length >= Number(limit)}`);
+      console.log(`   Has more: ${endIndex < reorderedProfiles.length}`);
 
       res.json({
         success: true,
-        profiles: reorderedProfiles,
-        hasMore: reorderedProfiles.length >= Number(limit),
+        profiles: paginatedProfiles,
+        hasMore: endIndex < reorderedProfiles.length,
         totalCount,
         filters: availableFilters
       });
@@ -726,6 +757,28 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
           message = 'User blocked successfully';
           break;
 
+        case 'unblock':
+          // Unblock user
+          const unblockConnection = await Connection.findOne({
+            where: {
+              [Op.or]: [
+                { userId1: currentUserId, userId2: targetUserId },
+                { userId1: targetUserId, userId2: currentUserId }
+              ],
+              status: 'blocked'
+            }
+          });
+
+          if (!unblockConnection) {
+            res.status(404).json({ success: false, message: 'Blocked connection not found' });
+            return;
+          }
+
+          // Remove the blocked connection entirely
+          await unblockConnection.destroy();
+          message = 'User unblocked successfully';
+          break;
+
         default:
           res.status(400).json({ success: false, message: 'Invalid action' });
           return;
@@ -765,6 +818,16 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
 
       if (!ADJECTIVES.includes(adjective)) {
         res.status(400).json({ success: false, message: 'Invalid adjective' });
+        return;
+      }
+
+      // Check if users are already connected/matched
+      const connectionState = await getConnectionState(currentUserId, targetUserId);
+      if (connectionState && connectionState.status === 'connected') {
+        res.status(400).json({ 
+          success: false, 
+          message: 'You are already matched with this person. Cannot select adjectives for matched users.' 
+        });
         return;
       }
 

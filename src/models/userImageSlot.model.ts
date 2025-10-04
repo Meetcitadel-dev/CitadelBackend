@@ -67,3 +67,4 @@ UserImageSlot.belongsTo(UserImage, { foreignKey: 'userImageId', as: 'image' });
 export default UserImageSlot;
 
 
+
