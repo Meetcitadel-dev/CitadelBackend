@@ -2,11 +2,13 @@ import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import User from '../models/user.model';
 import UserImage from '../models/userImage.model';
+import UserImageSlot from '../models/userImageSlot.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import Match from '../models/match.model';
 import Connection from '../models/connection.model';
 import NotificationReadStatus from '../models/notificationReadStatus.model';
 import University from '../models/university.model';
+import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -31,6 +33,32 @@ function calculateTimeAgo(date: Date): string {
   } else {
     const days = Math.floor(diffInSeconds / 86400);
     return `${days} day${days > 1 ? 's' : ''} ago`;
+  }
+}
+
+// Helper: get profile image URL from slot[0]
+async function getSlot0ImageUrl(userId: number): Promise<string | null> {
+  try {
+    const mapping = await UserImageSlot.findOne({ where: { userId, slot: 0 } });
+    if (!mapping) return null;
+
+    const img = await UserImage.findByPk(mapping.userImageId);
+    if (!img) return null;
+
+    const useUT = process.env.USE_UPLOADTHING === 'true';
+    const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+    if (isUploadThing || useUT) {
+      return img.cloudfrontUrl;
+    }
+
+    try {
+      return generateCloudFrontSignedUrl(img.s3Key);
+    } catch (error) {
+      return generateS3SignedUrl(img.s3Key);
+    }
+  } catch (e) {
+    console.warn('Failed to get slot[0] image for user', userId, e);
+    return null;
   }
 }
 
@@ -60,12 +88,6 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
             {
               model: University,
               as: 'userUniversity'
-            },
-            {
-              model: UserImage,
-              as: 'images',
-              attributes: ['cloudfrontUrl'],
-              required: false
             }
           ]
         }
@@ -105,35 +127,36 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
       matchGroups.get(match.mutualAdjective)!.push(match);
     });
 
-    // Format connection requests
-    const formattedConnectionRequests = connectionRequests.map(request => ({
+    // Format connection requests with slot[0] profile image
+    const formattedConnectionRequests = await Promise.all(connectionRequests.map(async (request) => ({
       id: request.id,
       requesterId: request.requesterId,
       requesterName: (request as any).requester?.name || 'Unknown User',
       requesterLocation: (request as any).requester?.userUniversity?.name || 'Unknown University',
-      requesterProfileImage: (request as any).requester?.images?.[0]?.cloudfrontUrl || null,
+      requesterProfileImage: await getSlot0ImageUrl(request.requesterId),
       status: request.status,
       createdAt: request.createdAt
-    }));
+    })));
 
-    // Format adjective notifications
-    const formattedAdjectiveNotifications = Array.from(matchGroups.entries()).map(([mutualAdjective, matches]) => {
-      const latestMatch = matches[0];
-      
-      // Get the other user for each match
-      const otherUsers = matches.map(match => {
+    // Format adjective notifications with slot[0] profile images for other users
+    const formattedAdjectiveNotifications = await Promise.all(Array.from(matchGroups.entries()).map(async ([mutualAdjective, groupMatches]) => {
+      const latestMatch = groupMatches[0];
+
+      // Determine other users and load their slot[0] images
+      const otherUsers = await Promise.all(groupMatches.map(async (match: any) => {
         const otherUser = match.userId1 === userId ? match.matchUser2 : match.matchUser1;
+        const profileImage = await getSlot0ImageUrl(otherUser.id);
         return {
           id: otherUser.id,
           name: otherUser.name || otherUser.username || 'Unknown User',
-          profileImage: null // We'll need to add image logic if needed
+          profileImage
         };
-      });
+      }));
 
       return {
         id: latestMatch.id,
         adjective: mutualAdjective,
-        count: matches.length,
+        count: groupMatches.length,
         userIds: otherUsers.map(u => u.id),
         userNames: otherUsers.map(u => u.name),
         userProfileImages: otherUsers.map(u => u.profileImage),
@@ -142,7 +165,7 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
         isConnected: latestMatch.isConnected,
         iceBreakingPrompt: latestMatch.iceBreakingPrompt
       };
-    });
+    }));
 
     res.json({
       success: true,
