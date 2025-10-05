@@ -7,6 +7,9 @@ import Conversation from '../models/conversation.model';
 import Message from '../models/message.model';
 import NotificationReadStatus from '../models/notificationReadStatus.model';
 import websocketService from '../services/websocket.service';
+import UserImage from '../models/userImage.model';
+import UserImageSlot from '../models/userImageSlot.model';
+import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -115,11 +118,48 @@ class EnhancedChatController {
             }
           }
 
+          // Resolve profile image for the other user
+          const profileImage = await (async () => {
+            try {
+              // Prefer slot 0
+              const mapping = await UserImageSlot.findOne({ where: { userId: otherUser.id, slot: 0 } });
+              let img: UserImage | null = null;
+              if (mapping) {
+                img = await UserImage.findByPk(mapping.userImageId);
+              }
+
+              // Fallback to first available slot
+              if (!img) {
+                const anyMapping = await UserImageSlot.findOne({ where: { userId: otherUser.id }, order: [['slot', 'ASC']] });
+                if (anyMapping) {
+                  img = await UserImage.findByPk(anyMapping.userImageId);
+                }
+              }
+
+              if (!img) return null;
+
+              const useUT = process.env.USE_UPLOADTHING === 'true';
+              const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+              if (isUploadThing || useUT) {
+                return img.cloudfrontUrl;
+              }
+
+              try {
+                return generateCloudFrontSignedUrl(img.s3Key);
+              } catch (error) {
+                return generateS3SignedUrl(img.s3Key);
+              }
+            } catch (e) {
+              console.warn('[ENHANCED MATCHES] Failed to resolve profile image for user', otherUser.id, e);
+              return null;
+            }
+          })();
+
           return {
             id: conversation?.id || null,
             userId: otherUser.id,
             name: otherUser.name || otherUser.username || 'Unknown User',
-            profileImage: null,
+            profileImage,
             lastMessage,
             lastMessageTime,
             isOnline: false,

@@ -7,11 +7,13 @@ exports.markNotificationAsRead = exports.handleConnectionRequest = exports.getNo
 const sequelize_1 = require("sequelize");
 const user_model_1 = __importDefault(require("../models/user.model"));
 const userImage_model_1 = __importDefault(require("../models/userImage.model"));
+const userImageSlot_model_1 = __importDefault(require("../models/userImageSlot.model"));
 const connectionRequest_model_1 = __importDefault(require("../models/connectionRequest.model"));
 const match_model_1 = __importDefault(require("../models/match.model"));
 const connection_model_1 = __importDefault(require("../models/connection.model"));
 const notificationReadStatus_model_1 = __importDefault(require("../models/notificationReadStatus.model"));
 const university_model_1 = __importDefault(require("../models/university.model"));
+const s3_service_1 = require("../services/s3.service");
 // Utility function to calculate time ago
 function calculateTimeAgo(date) {
     const now = new Date();
@@ -30,6 +32,32 @@ function calculateTimeAgo(date) {
     else {
         const days = Math.floor(diffInSeconds / 86400);
         return `${days} day${days > 1 ? 's' : ''} ago`;
+    }
+}
+// Helper: get profile image URL from slot[0]
+async function getSlot0ImageUrl(userId) {
+    try {
+        const mapping = await userImageSlot_model_1.default.findOne({ where: { userId, slot: 0 } });
+        if (!mapping)
+            return null;
+        const img = await userImage_model_1.default.findByPk(mapping.userImageId);
+        if (!img)
+            return null;
+        const useUT = process.env.USE_UPLOADTHING === 'true';
+        const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+        if (isUploadThing || useUT) {
+            return img.cloudfrontUrl;
+        }
+        try {
+            return (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
+        }
+        catch (error) {
+            return (0, s3_service_1.generateS3SignedUrl)(img.s3Key);
+        }
+    }
+    catch (e) {
+        console.warn('Failed to get slot[0] image for user', userId, e);
+        return null;
     }
 }
 // Get all notifications for a user
@@ -57,12 +85,6 @@ const getNotifications = async (req, res) => {
                         {
                             model: university_model_1.default,
                             as: 'userUniversity'
-                        },
-                        {
-                            model: userImage_model_1.default,
-                            as: 'images',
-                            attributes: ['cloudfrontUrl'],
-                            required: false
                         }
                     ]
                 }
@@ -99,32 +121,33 @@ const getNotifications = async (req, res) => {
             }
             matchGroups.get(match.mutualAdjective).push(match);
         });
-        // Format connection requests
-        const formattedConnectionRequests = connectionRequests.map(request => ({
+        // Format connection requests with slot[0] profile image
+        const formattedConnectionRequests = await Promise.all(connectionRequests.map(async (request) => ({
             id: request.id,
             requesterId: request.requesterId,
             requesterName: request.requester?.name || 'Unknown User',
             requesterLocation: request.requester?.userUniversity?.name || 'Unknown University',
-            requesterProfileImage: request.requester?.images?.[0]?.cloudfrontUrl || null,
+            requesterProfileImage: await getSlot0ImageUrl(request.requesterId),
             status: request.status,
             createdAt: request.createdAt
-        }));
-        // Format adjective notifications
-        const formattedAdjectiveNotifications = Array.from(matchGroups.entries()).map(([mutualAdjective, matches]) => {
-            const latestMatch = matches[0];
-            // Get the other user for each match
-            const otherUsers = matches.map(match => {
+        })));
+        // Format adjective notifications with slot[0] profile images for other users
+        const formattedAdjectiveNotifications = await Promise.all(Array.from(matchGroups.entries()).map(async ([mutualAdjective, groupMatches]) => {
+            const latestMatch = groupMatches[0];
+            // Determine other users and load their slot[0] images
+            const otherUsers = await Promise.all(groupMatches.map(async (match) => {
                 const otherUser = match.userId1 === userId ? match.matchUser2 : match.matchUser1;
+                const profileImage = await getSlot0ImageUrl(otherUser.id);
                 return {
                     id: otherUser.id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
-                    profileImage: null // We'll need to add image logic if needed
+                    profileImage
                 };
-            });
+            }));
             return {
                 id: latestMatch.id,
                 adjective: mutualAdjective,
-                count: matches.length,
+                count: groupMatches.length,
                 userIds: otherUsers.map(u => u.id),
                 userNames: otherUsers.map(u => u.name),
                 userProfileImages: otherUsers.map(u => u.profileImage),
@@ -133,7 +156,7 @@ const getNotifications = async (req, res) => {
                 isConnected: latestMatch.isConnected,
                 iceBreakingPrompt: latestMatch.iceBreakingPrompt
             };
-        });
+        }));
         res.json({
             success: true,
             connectionRequests: formattedConnectionRequests,

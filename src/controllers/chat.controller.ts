@@ -14,12 +14,40 @@ import GroupMessage from '../models/groupMessage.model';
 import websocketService from '../services/websocket.service';
 import unreadCountService from '../services/unreadCount.service';
 import UserImage from '../models/userImage.model';
+import UserImageSlot from '../models/userImageSlot.model';
+import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
     email: string;
   };
+}
+
+// Resolve user's primary (slot 0) profile image URL with UploadThing/CloudFront/S3 logic
+async function getSlot0ImageUrl(userId: number): Promise<string | null> {
+  try {
+    const mapping = await UserImageSlot.findOne({ where: { userId, slot: 0 } });
+    if (!mapping) return null;
+
+    const img = await UserImage.findByPk(mapping.userImageId);
+    if (!img) return null;
+
+    const useUT = process.env.USE_UPLOADTHING === 'true';
+    const isUploadThing = typeof (img as any).cloudfrontUrl === 'string' && (img as any).cloudfrontUrl.includes('utfs.io');
+    if (isUploadThing || useUT) {
+      return (img as any).cloudfrontUrl;
+    }
+
+    try {
+      return generateCloudFrontSignedUrl((img as any).s3Key);
+    } catch (error) {
+      return generateS3SignedUrl((img as any).s3Key);
+    }
+  } catch (e) {
+    console.warn('Failed to get slot[0] image for user', userId, e);
+    return null;
+  }
 }
 
 class ChatController {
@@ -97,11 +125,12 @@ class ChatController {
             });
           }
 
+          const profileImage = await getSlot0ImageUrl(otherUser.id);
           return {
             id: conversation?.id || null,
             userId: otherUser.id,
             name: otherUser.name || otherUser.username || 'Unknown User',
-            profileImage: null,
+            profileImage,
             lastMessage,
             lastMessageTime,
             isOnline: false, // Simplified for now
@@ -268,11 +297,12 @@ class ChatController {
             });
           }
 
+          const profileImage = await getSlot0ImageUrl(otherUser.id);
           return {
             id: conversation?.id || null,
             userId: otherUser.id,
             name: otherUser.name || otherUser.username || 'Unknown User',
-            profileImage: null,
+            profileImage,
             lastMessage,
             lastMessageTime,
             isOnline: false, // Simplified for now
@@ -411,8 +441,8 @@ class ChatController {
       // Get the other user in the conversation
       const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
 
-      // Update unread count for the recipient
-      await unreadCountService.updateDirectChatUnreadCount(Number(conversationId), userId, otherUserId, newMessage.id);
+      // Update unread count for the recipient (use other user's numeric ID as chatId for direct chats)
+      await unreadCountService.updateDirectChatUnreadCount(otherUserId, userId, otherUserId, newMessage.id);
 
       // Emit real-time message to recipient if online
       console.log(`📡 Chat Controller - Checking if user ${otherUserId} is online...`);
@@ -499,8 +529,8 @@ class ChatController {
         }
       );
 
-      // Reset unread count for this user in this conversation
-      await unreadCountService.resetUnreadCount(userId, Number(conversationId), false);
+      // Reset unread count for this user in this direct chat (keyed by other user's ID)
+      await unreadCountService.resetUnreadCount(userId, otherUserId, false);
 
       // Notify sender that messages were read (real-time)
       if (websocketService.isUserOnline(otherUserId)) {
@@ -564,13 +594,14 @@ class ChatController {
         });
       }
 
+      const profileImage = await getSlot0ImageUrl(targetUser.id);
       res.json({
         success: true,
         conversation: {
           id: conversation.id,
           userId: targetUser.id,
           name: targetUser.name || targetUser.username || 'Unknown User',
-          profileImage: null // TODO: Add profile image support
+          profileImage
         }
       });
     } catch (error) {
@@ -636,13 +667,14 @@ class ChatController {
         });
       }
 
+      const profileImage = await getSlot0ImageUrl(otherUser.id);
       res.json({
         success: true,
         conversation: {
           id: conversation.id,
           userId: otherUser.id,
           name: otherUser.name || otherUser.username || 'Unknown User',
-          profileImage: (otherUser as any).images?.[0]?.cloudfrontUrl || null
+          profileImage
         }
       });
     } catch (error) {

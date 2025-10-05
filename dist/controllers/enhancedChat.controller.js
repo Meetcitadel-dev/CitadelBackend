@@ -10,6 +10,9 @@ const match_model_1 = __importDefault(require("../models/match.model"));
 const conversation_model_1 = __importDefault(require("../models/conversation.model"));
 const message_model_1 = __importDefault(require("../models/message.model"));
 const notificationReadStatus_model_1 = __importDefault(require("../models/notificationReadStatus.model"));
+const userImage_model_1 = __importDefault(require("../models/userImage.model"));
+const userImageSlot_model_1 = __importDefault(require("../models/userImageSlot.model"));
+const s3_service_1 = require("../services/s3.service");
 class EnhancedChatController {
     // Get matched conversations using the new Match model
     async getMatchedConversations(req, res) {
@@ -99,11 +102,46 @@ class EnhancedChatController {
                         caseType = 'CASE_2'; // Already connected + never chatted
                     }
                 }
+                // Resolve profile image for the other user
+                const profileImage = await (async () => {
+                    try {
+                        // Prefer slot 0
+                        const mapping = await userImageSlot_model_1.default.findOne({ where: { userId: otherUser.id, slot: 0 } });
+                        let img = null;
+                        if (mapping) {
+                            img = await userImage_model_1.default.findByPk(mapping.userImageId);
+                        }
+                        // Fallback to first available slot
+                        if (!img) {
+                            const anyMapping = await userImageSlot_model_1.default.findOne({ where: { userId: otherUser.id }, order: [['slot', 'ASC']] });
+                            if (anyMapping) {
+                                img = await userImage_model_1.default.findByPk(anyMapping.userImageId);
+                            }
+                        }
+                        if (!img)
+                            return null;
+                        const useUT = process.env.USE_UPLOADTHING === 'true';
+                        const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+                        if (isUploadThing || useUT) {
+                            return img.cloudfrontUrl;
+                        }
+                        try {
+                            return (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
+                        }
+                        catch (error) {
+                            return (0, s3_service_1.generateS3SignedUrl)(img.s3Key);
+                        }
+                    }
+                    catch (e) {
+                        console.warn('[ENHANCED MATCHES] Failed to resolve profile image for user', otherUser.id, e);
+                        return null;
+                    }
+                })();
                 return {
                     id: conversation?.id || null,
                     userId: otherUser.id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
-                    profileImage: null,
+                    profileImage,
                     lastMessage,
                     lastMessageTime,
                     isOnline: false,
