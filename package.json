@@ -12,6 +12,9 @@
     "reset-auto-increment": "ts-node src/scripts/resetAutoIncrement.ts",
     "test-payment": "ts-node src/scripts/testPaymentIntegration.ts",
     "test-group-chat": "ts-node src/scripts/testGroupChat.ts",
+    "test-redis": "ts-node src/scripts/testUpstashRedis.ts",
+    "test-university-api": "ts-node src/scripts/testUniversityAPI.ts",
+    "test-connection-requests": "ts-node src/scripts/testConnectionRequests.ts",
     "migrate": "sequelize-cli db:migrate"
   },
   "keywords": [],
@@ -23,6 +26,7 @@
     "@types/sequelize": "^4.28.20",
     "@types/socket.io": "^3.0.1",
     "@uploadthing/mime-types": "^0.3.6",
+    "@upstash/redis": "^1.35.5",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
@@ -51,9 +55,8 @@
     "@types/multer": "^1.4.11",
     "@types/node": "^24.0.14",
     "@types/redis": "^4.0.10",
-    "sequelize-cli": "^6.6.3",
+    "sequelize-cli": "^6.6.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3",
-    "sequelize-cli": "^6.6.2"
+    "typescript": "^5.8.3"
   }
 }

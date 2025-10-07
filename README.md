@@ -29,7 +29,7 @@ A comprehensive Node.js/TypeScript backend for a university student networking a
 - **Runtime**: Node.js with TypeScript
 - **Framework**: Express.js
 - **Database**: PostgreSQL with Sequelize ORM
-- **Cache**: Redis for session management
+- **Cache**: Upstash Redis (primary) with traditional Redis fallback
 - **Real-time**: Socket.io for WebSocket connections
 - **Authentication**: JWT tokens with bcrypt
 - **File Storage**: AWS S3 with CloudFront CDN

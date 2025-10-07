@@ -46,6 +46,26 @@ University.init(
     modelName: 'University',
     tableName: 'universities',
     timestamps: true,
+    indexes: [
+      {
+        name: 'universities_name_idx',
+        fields: ['name']
+      },
+      {
+        name: 'universities_name_gin_idx',
+        fields: ['name'],
+        using: 'gin',
+        operator: 'gin_trgm_ops'
+      },
+      {
+        name: 'universities_domain_idx',
+        fields: ['domain']
+      },
+      {
+        name: 'universities_country_idx',
+        fields: ['country']
+      }
+    ]
   }
 );
 

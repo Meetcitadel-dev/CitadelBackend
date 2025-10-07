@@ -8,6 +8,7 @@ import ConnectionRequest from '../models/connectionRequest.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
 import Interaction from '../models/interaction.model';
 import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
+import websocketService from '../services/websocket.service';
 import { Op } from 'sequelize';
 
 // Adjective pool for matching
@@ -719,6 +720,41 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
             });
             message = 'Connection request sent successfully';
 
+            // Get requester details for the notification
+            const requester = await User.findByPk(currentUserId, {
+              attributes: ['id', 'name', 'username'],
+              include: [
+                {
+                  model: UserImageSlot,
+                  as: 'imageSlots',
+                  where: { slot: 0 },
+                  required: false,
+                  include: [
+                    {
+                      model: UserImage,
+                      as: 'image'
+                    }
+                  ]
+                }
+              ]
+            });
+
+            // Emit real-time connection request to target user
+            const requestData = {
+              id: connectionState.id,
+              requesterId: currentUserId,
+              requesterName: requester?.name || 'Unknown User',
+              requesterUsername: requester?.username,
+              requesterImage: requester?.imageSlots?.[0]?.image?.cloudfrontUrl || null,
+              targetId: targetUserId,
+              status: 'pending',
+              createdAt: connectionState.createdAt,
+              message: `${requester?.name || 'Someone'} sent you a connection request`
+            };
+
+            websocketService.emitConnectionRequest(targetUserId, requestData);
+            console.log(`🔗 Connection request sent from ${currentUserId} to ${targetUserId}`);
+
             // Track the interaction
             await Interaction.create({
               userId: currentUserId,
@@ -745,7 +781,7 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
           }
 
           await request.update({ status: 'accepted' });
-          
+
           // Create or update connection
           const [newConnection, created] = await Connection.findOrCreate({
             where: {
@@ -767,6 +803,40 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
 
           connectionState = newConnection;
           message = 'Connection request accepted successfully';
+
+          // Get accepter details for the notification
+          const accepter = await User.findByPk(currentUserId, {
+            attributes: ['id', 'name', 'username'],
+            include: [
+              {
+                model: UserImageSlot,
+                as: 'imageSlots',
+                where: { slot: 0 },
+                required: false,
+                include: [
+                  {
+                    model: UserImage,
+                    as: 'image'
+                  }
+                ]
+              }
+            ]
+          });
+
+          // Emit real-time connection accepted to requester
+          const acceptData = {
+            connectionId: newConnection.id,
+            accepterId: currentUserId,
+            accepterName: accepter?.name || 'Unknown User',
+            accepterUsername: accepter?.username,
+            accepterImage: accepter?.imageSlots?.[0]?.image?.cloudfrontUrl || null,
+            requestId: request.id,
+            status: 'connected',
+            message: `${accepter?.name || 'Someone'} accepted your connection request`
+          };
+
+          websocketService.emitConnectionRequestAccepted(targetUserId, acceptData);
+          console.log(`✅ Connection request accepted by ${currentUserId} for requester ${targetUserId}`);
           break;
 
         case 'reject':
@@ -786,6 +856,23 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
 
           await rejectRequest.update({ status: 'rejected' });
           message = 'Connection request rejected successfully';
+
+          // Get rejecter details for the notification
+          const rejecter = await User.findByPk(currentUserId, {
+            attributes: ['id', 'name', 'username']
+          });
+
+          // Emit real-time connection rejected to requester
+          const rejectData = {
+            requestId: rejectRequest.id,
+            rejecterId: currentUserId,
+            rejecterName: rejecter?.name || 'Unknown User',
+            status: 'rejected',
+            message: `Your connection request was declined`
+          };
+
+          websocketService.emitConnectionRequestRejected(targetUserId, rejectData);
+          console.log(`❌ Connection request rejected by ${currentUserId} for requester ${targetUserId}`);
           break;
 
         case 'remove':
@@ -806,6 +893,23 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
 
           await existingConnection.destroy();
           message = 'Connection removed successfully';
+
+          // Get remover details for the notification
+          const remover = await User.findByPk(currentUserId, {
+            attributes: ['id', 'name', 'username']
+          });
+
+          // Emit real-time connection removed to the other user
+          const removeData = {
+            connectionId: existingConnection.id,
+            removerId: currentUserId,
+            removerName: remover?.name || 'Unknown User',
+            targetId: targetUserId,
+            message: `${remover?.name || 'Someone'} removed the connection`
+          };
+
+          websocketService.emitConnectionRemoved(targetUserId, removeData);
+          console.log(`🗑️ Connection removed by ${currentUserId} with user ${targetUserId}`);
           break;
 
         case 'block':

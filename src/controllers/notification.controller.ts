@@ -9,6 +9,7 @@ import Connection from '../models/connection.model';
 import NotificationReadStatus from '../models/notificationReadStatus.model';
 import University from '../models/university.model';
 import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
+import websocketService from '../services/websocket.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -271,6 +272,57 @@ export const handleConnectionRequest = async (req: AuthenticatedRequest, res: Re
         createdAt: connection.createdAt,
         updatedAt: connection.updatedAt
       };
+
+      // Get accepter details for the notification
+      const accepter = await User.findByPk(userId, {
+        attributes: ['id', 'name', 'username'],
+        include: [
+          {
+            model: UserImageSlot,
+            as: 'imageSlots',
+            where: { slot: 0 },
+            required: false,
+            include: [
+              {
+                model: UserImage,
+                as: 'image'
+              }
+            ]
+          }
+        ]
+      });
+
+      // Emit real-time connection accepted to requester
+      const acceptData = {
+        connectionId: connection.id,
+        accepterId: userId,
+        accepterName: accepter?.name || 'Unknown User',
+        accepterUsername: accepter?.username,
+        accepterImage: accepter?.imageSlots?.[0]?.image?.cloudfrontUrl || null,
+        requestId: connectionRequest.id,
+        status: 'connected',
+        message: `${accepter?.name || 'Someone'} accepted your connection request`
+      };
+
+      websocketService.emitConnectionRequestAccepted(connectionRequest.requesterId, acceptData);
+      console.log(`✅ Connection request accepted by ${userId} for requester ${connectionRequest.requesterId}`);
+    } else {
+      // Get rejecter details for the notification
+      const rejecter = await User.findByPk(userId, {
+        attributes: ['id', 'name', 'username']
+      });
+
+      // Emit real-time connection rejected to requester
+      const rejectData = {
+        requestId: connectionRequest.id,
+        rejecterId: userId,
+        rejecterName: rejecter?.name || 'Unknown User',
+        status: 'rejected',
+        message: `Your connection request was declined`
+      };
+
+      websocketService.emitConnectionRequestRejected(connectionRequest.requesterId, rejectData);
+      console.log(`❌ Connection request rejected by ${userId} for requester ${connectionRequest.requesterId}`);
     }
 
     res.json({
