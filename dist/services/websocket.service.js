@@ -338,6 +338,28 @@ class WebSocketService {
             this.io.emit(event, data);
         }
     }
+    // Connection request specific methods
+    emitConnectionRequest(targetUserId, requestData) {
+        console.log(`🔗 WebSocket - Emitting connection request to user ${targetUserId}`);
+        this.emitToUser(targetUserId, 'connection_request_received', requestData);
+    }
+    emitConnectionRequestAccepted(requesterId, acceptData) {
+        console.log(`✅ WebSocket - Emitting connection request accepted to user ${requesterId}`);
+        this.emitToUser(requesterId, 'connection_request_accepted', acceptData);
+    }
+    emitConnectionRequestRejected(requesterId, rejectData) {
+        console.log(`❌ WebSocket - Emitting connection request rejected to user ${requesterId}`);
+        this.emitToUser(requesterId, 'connection_request_rejected', rejectData);
+    }
+    emitConnectionRemoved(targetUserId, removeData) {
+        console.log(`🗑️ WebSocket - Emitting connection removed to user ${targetUserId}`);
+        this.emitToUser(targetUserId, 'connection_removed', removeData);
+    }
+    // General notification method
+    emitNotification(userId, notification) {
+        console.log(`🔔 WebSocket - Emitting notification to user ${userId}`);
+        this.emitToUser(userId, 'notification', notification);
+    }
     // Get online users
     getOnlineUsers() {
         return Array.from(this.userSockets.keys());

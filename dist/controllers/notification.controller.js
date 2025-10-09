@@ -14,6 +14,7 @@ const connection_model_1 = __importDefault(require("../models/connection.model")
 const notificationReadStatus_model_1 = __importDefault(require("../models/notificationReadStatus.model"));
 const university_model_1 = __importDefault(require("../models/university.model"));
 const s3_service_1 = require("../services/s3.service");
+const websocket_service_1 = __importDefault(require("../services/websocket.service"));
 // Utility function to calculate time ago
 function calculateTimeAgo(date) {
     const now = new Date();
@@ -251,6 +252,54 @@ const handleConnectionRequest = async (req, res) => {
                 createdAt: connection.createdAt,
                 updatedAt: connection.updatedAt
             };
+            // Get accepter details for the notification
+            const accepter = await user_model_1.default.findByPk(userId, {
+                attributes: ['id', 'name', 'username'],
+                include: [
+                    {
+                        model: userImageSlot_model_1.default,
+                        as: 'imageSlots',
+                        where: { slot: 0 },
+                        required: false,
+                        include: [
+                            {
+                                model: userImage_model_1.default,
+                                as: 'image'
+                            }
+                        ]
+                    }
+                ]
+            });
+            // Emit real-time connection accepted to requester
+            const accepterImageUrl = await getSlot0ImageUrl(userId);
+            const acceptData = {
+                connectionId: connection.id,
+                accepterId: userId,
+                accepterName: accepter?.name || 'Unknown User',
+                accepterUsername: accepter?.username,
+                accepterImage: accepterImageUrl,
+                requestId: connectionRequest.id,
+                status: 'connected',
+                message: `${accepter?.name || 'Someone'} accepted your connection request`
+            };
+            websocket_service_1.default.emitConnectionRequestAccepted(connectionRequest.requesterId, acceptData);
+            console.log(`✅ Connection request accepted by ${userId} for requester ${connectionRequest.requesterId}`);
+        }
+        else {
+            // Get rejecter details for the notification
+            const rejecter = await user_model_1.default.findByPk(userId, {
+                attributes: ['id', 'name', 'username']
+            });
+            // Emit real-time connection rejected to requester
+            const rejectData = {
+                requestId: connectionRequest.id,
+                rejecterId: userId,
+                rejecterName: rejecter?.name || 'Unknown User',
+                status: 'rejected',
+                message: `Your connection request was declined`
+            };
+            websocket_service_1.default.emitConnectionRequestRejected(connectionRequest.requesterId, rejectData);
+            console.log(`❌ Connection request rejected by ${userId} for requester ${connectionRequest.requesterId}`);
         }
         res.json({
             success: true,

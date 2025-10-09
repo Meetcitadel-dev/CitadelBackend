@@ -740,12 +740,13 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
             });
 
             // Emit real-time connection request to target user
+            const requesterImages = await getSlotOrganizedImages(currentUserId);
             const requestData = {
               id: connectionState.id,
               requesterId: currentUserId,
               requesterName: requester?.name || 'Unknown User',
               requesterUsername: requester?.username,
-              requesterImage: requester?.imageSlots?.[0]?.image?.cloudfrontUrl || null,
+              requesterImage: requesterImages.profileImage,
               targetId: targetUserId,
               status: 'pending',
               createdAt: connectionState.createdAt,
@@ -824,12 +825,13 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
           });
 
           // Emit real-time connection accepted to requester
+          const accepterImages = await getSlotOrganizedImages(currentUserId);
           const acceptData = {
             connectionId: newConnection.id,
             accepterId: currentUserId,
             accepterName: accepter?.name || 'Unknown User',
             accepterUsername: accepter?.username,
-            accepterImage: accepter?.imageSlots?.[0]?.image?.cloudfrontUrl || null,
+            accepterImage: accepterImages.profileImage,
             requestId: request.id,
             status: 'connected',
             message: `${accepter?.name || 'Someone'} accepted your connection request`

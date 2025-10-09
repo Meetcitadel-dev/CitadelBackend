@@ -16,6 +16,34 @@ const groupMessage_model_1 = __importDefault(require("../models/groupMessage.mod
 const websocket_service_1 = __importDefault(require("../services/websocket.service"));
 const unreadCount_service_1 = __importDefault(require("../services/unreadCount.service"));
 const userImage_model_1 = __importDefault(require("../models/userImage.model"));
+const userImageSlot_model_1 = __importDefault(require("../models/userImageSlot.model"));
+const s3_service_1 = require("../services/s3.service");
+// Resolve user's primary (slot 0) profile image URL with UploadThing/CloudFront/S3 logic
+async function getSlot0ImageUrl(userId) {
+    try {
+        const mapping = await userImageSlot_model_1.default.findOne({ where: { userId, slot: 0 } });
+        if (!mapping)
+            return null;
+        const img = await userImage_model_1.default.findByPk(mapping.userImageId);
+        if (!img)
+            return null;
+        const useUT = process.env.USE_UPLOADTHING === 'true';
+        const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
+        if (isUploadThing || useUT) {
+            return img.cloudfrontUrl;
+        }
+        try {
+            return (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
+        }
+        catch (error) {
+            return (0, s3_service_1.generateS3SignedUrl)(img.s3Key);
+        }
+    }
+    catch (e) {
+        console.warn('Failed to get slot[0] image for user', userId, e);
+        return null;
+    }
+}
 class ChatController {
     // Get active conversations (connected users and groups)
     async getActiveConversations(req, res) {
@@ -82,11 +110,12 @@ class ChatController {
                         }
                     });
                 }
+                const profileImage = await getSlot0ImageUrl(otherUser.id);
                 return {
                     id: conversation?.id || null,
                     userId: otherUser.id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
-                    profileImage: null,
+                    profileImage,
                     lastMessage,
                     lastMessageTime,
                     isOnline: false, // Simplified for now
@@ -231,11 +260,12 @@ class ChatController {
                         }
                     });
                 }
+                const profileImage = await getSlot0ImageUrl(otherUser.id);
                 return {
                     id: conversation?.id || null,
                     userId: otherUser.id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
-                    profileImage: null,
+                    profileImage,
                     lastMessage,
                     lastMessageTime,
                     isOnline: false, // Simplified for now
@@ -358,8 +388,8 @@ class ChatController {
             await conversation.update({ updatedAt: new Date() });
             // Get the other user in the conversation
             const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
-            // Update unread count for the recipient
-            await unreadCount_service_1.default.updateDirectChatUnreadCount(Number(conversationId), userId, otherUserId, newMessage.id);
+            // Update unread count for the recipient (use other user's numeric ID as chatId for direct chats)
+            await unreadCount_service_1.default.updateDirectChatUnreadCount(otherUserId, userId, otherUserId, newMessage.id);
             // Emit real-time message to recipient if online
             console.log(`📡 Chat Controller - Checking if user ${otherUserId} is online...`);
             if (websocket_service_1.default.isUserOnline(otherUserId)) {
@@ -436,8 +466,8 @@ class ChatController {
                     status: { [sequelize_1.Op.ne]: 'read' }
                 }
             });
-            // Reset unread count for this user in this conversation
-            await unreadCount_service_1.default.resetUnreadCount(userId, Number(conversationId), false);
+            // Reset unread count for this user in this direct chat (keyed by other user's ID)
+            await unreadCount_service_1.default.resetUnreadCount(userId, otherUserId, false);
             // Notify sender that messages were read (real-time)
             if (websocket_service_1.default.isUserOnline(otherUserId)) {
                 websocket_service_1.default.emitToUser(otherUserId, 'messages_read', {
@@ -493,13 +523,14 @@ class ChatController {
                     user2Id: Math.max(userId, Number(targetUserId))
                 });
             }
+            const profileImage = await getSlot0ImageUrl(targetUser.id);
             res.json({
                 success: true,
                 conversation: {
                     id: conversation.id,
                     userId: targetUser.id,
                     name: targetUser.name || targetUser.username || 'Unknown User',
-                    profileImage: null // TODO: Add profile image support
+                    profileImage
                 }
             });
         }
@@ -558,13 +589,14 @@ class ChatController {
                     message: 'User not found'
                 });
             }
+            const profileImage = await getSlot0ImageUrl(otherUser.id);
             res.json({
                 success: true,
                 conversation: {
                     id: conversation.id,
                     userId: otherUser.id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
-                    profileImage: otherUser.images?.[0]?.cloudfrontUrl || null
+                    profileImage
                 }
             });
         }

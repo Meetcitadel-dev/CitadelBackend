@@ -26,7 +26,7 @@ export const getUniversities = async (req: Request, res: Response) => {
     }
 
     console.log(`🔍 University cache miss, querying database for: "${search}"`);
-    let universities;
+    let universities: University[];
 
     if (search && search.length >= 2) {
       // Use database search with ILIKE for better performance

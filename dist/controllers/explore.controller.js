@@ -12,6 +12,7 @@ const connectionRequest_model_1 = __importDefault(require("../models/connectionR
 const adjectiveMatch_model_1 = __importDefault(require("../models/adjectiveMatch.model"));
 const interaction_model_1 = __importDefault(require("../models/interaction.model"));
 const s3_service_1 = require("../services/s3.service");
+const websocket_service_1 = __importDefault(require("../services/websocket.service"));
 const sequelize_1 = require("sequelize");
 // Adjective pool for matching
 const ADJECTIVES = [
@@ -621,6 +622,39 @@ const manageConnection = async (req, res) => {
                         status: 'pending'
                     });
                     message = 'Connection request sent successfully';
+                    // Get requester details for the notification
+                    const requester = await user_model_1.default.findByPk(currentUserId, {
+                        attributes: ['id', 'name', 'username'],
+                        include: [
+                            {
+                                model: userImageSlot_model_1.default,
+                                as: 'imageSlots',
+                                where: { slot: 0 },
+                                required: false,
+                                include: [
+                                    {
+                                        model: userImage_model_1.default,
+                                        as: 'image'
+                                    }
+                                ]
+                            }
+                        ]
+                    });
+                    // Emit real-time connection request to target user
+                    const requesterImages = await getSlotOrganizedImages(currentUserId);
+                    const requestData = {
+                        id: connectionState.id,
+                        requesterId: currentUserId,
+                        requesterName: requester?.name || 'Unknown User',
+                        requesterUsername: requester?.username,
+                        requesterImage: requesterImages.profileImage,
+                        targetId: targetUserId,
+                        status: 'pending',
+                        createdAt: connectionState.createdAt,
+                        message: `${requester?.name || 'Someone'} sent you a connection request`
+                    };
+                    websocket_service_1.default.emitConnectionRequest(targetUserId, requestData);
+                    console.log(`🔗 Connection request sent from ${currentUserId} to ${targetUserId}`);
                     // Track the interaction
                     await interaction_model_1.default.create({
                         userId: currentUserId,
@@ -663,6 +697,38 @@ const manageConnection = async (req, res) => {
                 }
                 connectionState = newConnection;
                 message = 'Connection request accepted successfully';
+                // Get accepter details for the notification
+                const accepter = await user_model_1.default.findByPk(currentUserId, {
+                    attributes: ['id', 'name', 'username'],
+                    include: [
+                        {
+                            model: userImageSlot_model_1.default,
+                            as: 'imageSlots',
+                            where: { slot: 0 },
+                            required: false,
+                            include: [
+                                {
+                                    model: userImage_model_1.default,
+                                    as: 'image'
+                                }
+                            ]
+                        }
+                    ]
+                });
+                // Emit real-time connection accepted to requester
+                const accepterImages = await getSlotOrganizedImages(currentUserId);
+                const acceptData = {
+                    connectionId: newConnection.id,
+                    accepterId: currentUserId,
+                    accepterName: accepter?.name || 'Unknown User',
+                    accepterUsername: accepter?.username,
+                    accepterImage: accepterImages.profileImage,
+                    requestId: request.id,
+                    status: 'connected',
+                    message: `${accepter?.name || 'Someone'} accepted your connection request`
+                };
+                websocket_service_1.default.emitConnectionRequestAccepted(targetUserId, acceptData);
+                console.log(`✅ Connection request accepted by ${currentUserId} for requester ${targetUserId}`);
                 break;
             case 'reject':
                 // Reject connection request
@@ -679,6 +745,20 @@ const manageConnection = async (req, res) => {
                 }
                 await rejectRequest.update({ status: 'rejected' });
                 message = 'Connection request rejected successfully';
+                // Get rejecter details for the notification
+                const rejecter = await user_model_1.default.findByPk(currentUserId, {
+                    attributes: ['id', 'name', 'username']
+                });
+                // Emit real-time connection rejected to requester
+                const rejectData = {
+                    requestId: rejectRequest.id,
+                    rejecterId: currentUserId,
+                    rejecterName: rejecter?.name || 'Unknown User',
+                    status: 'rejected',
+                    message: `Your connection request was declined`
+                };
+                websocket_service_1.default.emitConnectionRequestRejected(targetUserId, rejectData);
+                console.log(`❌ Connection request rejected by ${currentUserId} for requester ${targetUserId}`);
                 break;
             case 'remove':
                 // Remove connection
@@ -696,6 +776,20 @@ const manageConnection = async (req, res) => {
                 }
                 await existingConnection.destroy();
                 message = 'Connection removed successfully';
+                // Get remover details for the notification
+                const remover = await user_model_1.default.findByPk(currentUserId, {
+                    attributes: ['id', 'name', 'username']
+                });
+                // Emit real-time connection removed to the other user
+                const removeData = {
+                    connectionId: existingConnection.id,
+                    removerId: currentUserId,
+                    removerName: remover?.name || 'Unknown User',
+                    targetId: targetUserId,
+                    message: `${remover?.name || 'Someone'} removed the connection`
+                };
+                websocket_service_1.default.emitConnectionRemoved(targetUserId, removeData);
+                console.log(`🗑️ Connection removed by ${currentUserId} with user ${targetUserId}`);
                 break;
             case 'block':
                 // Block user

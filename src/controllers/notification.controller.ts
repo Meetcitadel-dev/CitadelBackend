@@ -293,12 +293,13 @@ export const handleConnectionRequest = async (req: AuthenticatedRequest, res: Re
       });
 
       // Emit real-time connection accepted to requester
+      const accepterImageUrl = await getSlot0ImageUrl(userId);
       const acceptData = {
         connectionId: connection.id,
         accepterId: userId,
         accepterName: accepter?.name || 'Unknown User',
         accepterUsername: accepter?.username,
-        accepterImage: accepter?.imageSlots?.[0]?.image?.cloudfrontUrl || null,
+        accepterImage: accepterImageUrl,
         requestId: connectionRequest.id,
         status: 'connected',
         message: `${accepter?.name || 'Someone'} accepted your connection request`
