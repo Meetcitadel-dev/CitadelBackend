@@ -176,8 +176,10 @@ class EnhancedChatController {
         })
       );
 
-      const filteredConversations = conversations.filter((conv: any) => conv.id !== null);
-      console.log('✅ [ENHANCED MATCHES] Returning filtered conversations:', filteredConversations.length);
+      // Don't filter out matches without conversations - they should still appear in matches section
+      // const filteredConversations = conversations.filter((conv: any) => conv.id !== null);
+      const filteredConversations = conversations; // Return all matches, even without conversations
+      console.log('✅ [ENHANCED MATCHES] Returning all matches:', filteredConversations.length);
 
       res.json({
         success: true,
