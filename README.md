@@ -10,7 +10,7 @@ A comprehensive Node.js/TypeScript backend for a university student networking a
 - **Smart Matching System**: Advanced algorithm-based user matching with adjective selection
 - **Real-time Chat**: WebSocket-powered instant messaging
 - **Connection Management**: Friend requests, blocking, and mutual connections
-- **Payment Integration**: Razorpay and PhonePe payment gateways
+- **Payment Integration**: Razorpay payment gateway
 - **File Upload**: AWS S3 integration for image storage
 - **Notification System**: Real-time notifications and status updates
 
@@ -38,6 +38,7 @@ A comprehensive Node.js/TypeScript backend for a university student networking a
 - **Payments**: Razorpay SDK integration
 - **Email/OTP**: Resend API for transactional email (OTP delivery)
 - **Uploads**: Multer and UploadThing mime-types for validation
+ - **Uploads**: Multer for multipart parsing; optional UploadThing provider (toggle)
 - **Security**: Helmet, CORS, configurable CSP, rate limiting
 
 ### Development Tools
@@ -108,6 +109,7 @@ backend/
 - Node.js (v16 or higher)
 - Docker and Docker Compose
 - PostgreSQL
+- MongoDB
 - Redis
 
 ### Installation
@@ -174,6 +176,10 @@ backend/
    # Payments (Razorpay)
    RAZORPAY_KEY_ID=
    RAZORPAY_KEY_SECRET=
+
+   # Uploads
+   # If true, use UploadThing provider instead of direct S3 uploads
+   USE_UPLOADTHING=false
    ```
 
 4. **Start services with Docker**
@@ -443,8 +449,8 @@ npx sequelize-cli db:seed:undo:all
 ### Docker Deployment
 
 ```bash
-# Build and run with Docker Compose
-docker-compose -f docker-compose.prod.yml up -d
+# Build and run with Docker Compose (example)
+docker-compose up -d --build
 ```
 
 ## 🤝 Contributing
