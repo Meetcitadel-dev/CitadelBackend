@@ -1,6 +1,6 @@
 # Citadel Backend
 
-A comprehensive Node.js/TypeScript backend for a university student networking and dating platform. Built with Express.js, PostgreSQL, Redis, and WebSocket support for real-time communication.
+A comprehensive Node.js/TypeScript backend for a university student networking platform. Built with Express.js, PostgreSQL, Redis, and WebSocket support for real-time communication.
 
 ## 🚀 Features
 
