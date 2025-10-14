@@ -112,9 +112,6 @@ export const sendOtpController = async (req: Request, res: Response) => {
 
 export const verifyOtpController = async (req: Request, res: Response) => {
   const { email, otp, isLogin = false, rememberDevice = false } = req.body;
-  
-  // Temporary feature flag - set to false to use old behavior until frontend is updated
-  const useNewAuthFlow = process.env.USE_NEW_AUTH_FLOW === 'true';
   if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required' });
 
   const user = await User.findOne({ where: { email } });
@@ -130,51 +127,7 @@ export const verifyOtpController = async (req: Request, res: Response) => {
     await user.save();
   }
 
-  // Use old flow if feature flag is disabled
-  if (!useNewAuthFlow) {
-    // Generate JWT tokens (old behavior)
-    const accessToken = jwt.sign({ 
-      sub: user.id, 
-      username: user.email.split('@')[0], // Use email prefix as username
-      role: 'USER', // Default role
-      email: user.email 
-    }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
-    const refreshToken = jwt.sign({ 
-      sub: user.id, 
-      username: user.email.split('@')[0],
-      role: 'USER',
-      email: user.email 
-    }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-
-    return res.json({
-      success: true,
-      tokens: { accessToken, refreshToken },
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        username: user.username,
-        universityId: user.universityId,
-        degree: user.degree,
-        year: user.year,
-        gender: user.gender,
-        dateOfBirth: user.dateOfBirth,
-        skills: user.skills,
-        friends: user.friends,
-        aboutMe: user.aboutMe,
-        sports: user.sports,
-        movies: user.movies,
-        tvShows: user.tvShows,
-        teams: user.teams,
-        portfolioLink: user.portfolioLink,
-        phoneNumber: user.phoneNumber,
-        isProfileComplete: user.isProfileComplete,
-        isEmailVerified: user.isEmailVerified,
-      },
-    });
-  }
-
-  // Issue short-lived access token and 7-day refresh token (new behavior)
+  // Issue short-lived access token and 7-day refresh token
   const accessToken = jwt.sign(
     {
       sub: user.id,
