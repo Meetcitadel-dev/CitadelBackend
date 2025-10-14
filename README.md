@@ -40,6 +40,8 @@ A comprehensive Node.js/TypeScript backend for a university student networking p
 - **Uploads**: Multer and UploadThing mime-types for validation
  - **Uploads**: Multer for multipart parsing; optional UploadThing provider (toggle)
 - **Security**: Helmet, CORS, configurable CSP, rate limiting
+ - **Hosting/Deployment**: Render (backend Web Service)
+ - **Managed PostgreSQL**: Render Managed PostgreSQL
 
 ### Development Tools
 - **TypeScript**: Static type checking
@@ -57,6 +59,8 @@ A comprehensive Node.js/TypeScript backend for a university student networking p
 - **Document DB**: MongoDB Atlas (`mongoose`)
 - **Realtime**: Socket.io (`socket.io`)
 - **Security**: Helmet (`helmet`), CORS (`cors`)
+ - **Backend Hosting**: Render (Web Service)
+ - **PostgreSQL Hosting**: Render Managed PostgreSQL
 
 ## 📁 Project Structure
 
@@ -111,6 +115,9 @@ backend/
 - PostgreSQL
 - MongoDB
 - Redis
+ - Render account (for backend hosting and managed PostgreSQL)
+ - AWS account (S3/CloudFront)
+ - MongoDB Atlas account
 
 ### Installation
 
@@ -433,6 +440,7 @@ npx sequelize-cli db:seed:undo:all
    - Set up AWS S3 and CloudFront (see `IMAGE_UPLOAD_README.md`, `CLOUDFRONT_CORS_SETUP.md`)
    - Configure Razorpay credentials
    - Configure Upstash Redis (or provide `REDIS_URL` fallback)
+   - Configure Render service environment (DATABASE_URL, JWT_SECRET, MONGODB_URI, RESEND_API_KEY, etc.)
 
 2. **Database Setup**
    ```bash
@@ -452,6 +460,25 @@ npx sequelize-cli db:seed:undo:all
 # Build and run with Docker Compose (example)
 docker-compose up -d --build
 ```
+
+## 📦 Services Matrix
+
+| Area | Service/Provider | Library/SDK | Notes |
+|------|-------------------|-------------|-------|
+| Backend hosting | Render | - | Hosts the Express/Socket.io service |
+| PostgreSQL | Render Managed PostgreSQL | `sequelize`, `pg` | Primary relational DB |
+| MongoDB | MongoDB Atlas | `mongoose` | Auxiliary/document data |
+| Cache/Rate limit | Upstash Redis | `@upstash/redis` | Primary cache/OTP store |
+| Redis fallback | Self-hosted/Render Redis URL | `redis` | Automatic fallback in code |
+| Email/OTP | Resend | `resend` | OTP email delivery |
+| Object storage | AWS S3 | `aws-sdk` | User images |
+| CDN | AWS CloudFront | - | Image delivery, CORS/edge function configured |
+| Payments | Razorpay | `razorpay` | Orders + signature verification |
+| Uploads | Multer | `multer` | Multipart parsing |
+| Upload validation | UploadThing mime-types | `@uploadthing/mime-types` | MIME/type checks |
+| Security | Helmet/CORS | `helmet`, `cors` | CSP adjusted for images |
+| Auth | JWT | `jsonwebtoken`, `bcryptjs` | Token-based auth |
+| HTTP client | - | `axios` | External API calls/utilities |
 
 ## 🤝 Contributing
 
