@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const express_1 = __importDefault(require("express"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const helmet_1 = __importDefault(require("helmet"));
 const cors_1 = __importDefault(require("cors"));
 const mongodb_1 = __importDefault(require("./config/mongodb"));
@@ -34,6 +35,7 @@ app.use(helmet_1.default.contentSecurityPolicy({
     }
 }));
 app.use(express_1.default.json());
+app.use((0, cookie_parser_1.default)());
 // CORS configuration using environment variables
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())

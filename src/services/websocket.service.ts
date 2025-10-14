@@ -82,13 +82,25 @@ class WebSocketService {
     const userId = socket.userId;
     const userEmail = socket.userEmail;
 
+    // Guard against invalid userId (auth failure)
+    if (!userId || !userEmail) {
+      console.log('❌ WebSocket connection rejected - invalid auth data');
+      socket.disconnect();
+      return;
+    }
+
     console.log(`User ${userId} (${userEmail}) connected`);
 
     // Store socket mapping
     this.userSockets.set(userId, socket.id);
 
-    // Update user online status
-    await this.updateUserOnlineStatus(userId, true);
+    // Update user online status (with error handling)
+    try {
+      await this.updateUserOnlineStatus(userId, true);
+    } catch (error) {
+      console.error('Failed to update online status on connect:', error);
+      // Don't disconnect - just log the error
+    }
 
     // Join user to their personal room
     socket.join(`user_${userId}`);
@@ -97,7 +109,12 @@ class WebSocketService {
     socket.on('disconnect', async () => {
       console.log(`User ${userId} disconnected`);
       this.userSockets.delete(userId);
-      await this.updateUserOnlineStatus(userId, false);
+      try {
+        await this.updateUserOnlineStatus(userId, false);
+      } catch (error) {
+        console.error('Failed to update online status on disconnect:', error);
+        // Don't throw - just log the error
+      }
     });
 
     // Handle new message

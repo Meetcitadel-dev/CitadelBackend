@@ -106,7 +106,9 @@ const sendOtpController = async (req, res) => {
 };
 exports.sendOtpController = sendOtpController;
 const verifyOtpController = async (req, res) => {
-    const { email, otp, isLogin = false } = req.body;
+    const { email, otp, isLogin = false, rememberDevice = false } = req.body;
+    // Temporary feature flag - set to false to use old behavior until frontend is updated
+    const useNewAuthFlow = process.env.USE_NEW_AUTH_FLOW === 'true';
     if (!email || !otp)
         return res.status(400).json({ success: false, message: 'Email and OTP are required' });
     const user = await user_model_1.default.findOne({ where: { email } });
@@ -121,19 +123,81 @@ const verifyOtpController = async (req, res) => {
         user.otpAttempts = 0;
         await user.save();
     }
-    // Generate JWT tokens
+    // Use old flow if feature flag is disabled
+    if (!useNewAuthFlow) {
+        // Generate JWT tokens (old behavior)
+        const accessToken = jsonwebtoken_1.default.sign({
+            sub: user.id,
+            username: user.email.split('@')[0], // Use email prefix as username
+            role: 'USER', // Default role
+            email: user.email
+        }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
+        const refreshToken = jsonwebtoken_1.default.sign({
+            sub: user.id,
+            username: user.email.split('@')[0],
+            role: 'USER',
+            email: user.email
+        }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+        return res.json({
+            success: true,
+            tokens: { accessToken, refreshToken },
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                username: user.username,
+                universityId: user.universityId,
+                degree: user.degree,
+                year: user.year,
+                gender: user.gender,
+                dateOfBirth: user.dateOfBirth,
+                skills: user.skills,
+                friends: user.friends,
+                aboutMe: user.aboutMe,
+                sports: user.sports,
+                movies: user.movies,
+                tvShows: user.tvShows,
+                teams: user.teams,
+                portfolioLink: user.portfolioLink,
+                phoneNumber: user.phoneNumber,
+                isProfileComplete: user.isProfileComplete,
+                isEmailVerified: user.isEmailVerified,
+            },
+        });
+    }
+    // Issue short-lived access token and 7-day refresh token (new behavior)
     const accessToken = jsonwebtoken_1.default.sign({
-        sub: user.id,
-        username: user.email.split('@')[0], // Use email prefix as username
-        role: 'USER', // Default role
-        email: user.email
-    }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
-    const refreshToken = jsonwebtoken_1.default.sign({
         sub: user.id,
         username: user.email.split('@')[0],
         role: 'USER',
         email: user.email
-    }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    }, process.env.JWT_SECRET || 'secret', { expiresIn: process.env.ACCESS_TOKEN_TTL || '30m' });
+    const refreshToken = jsonwebtoken_1.default.sign({
+        sub: user.id,
+        tokenType: 'refresh'
+    }, process.env.JWT_SECRET || 'secret', { expiresIn: process.env.REFRESH_TOKEN_TTL || '7d' });
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined; // e.g., .yourdomain.com
+    const secureCookie = (process.env.COOKIE_SECURE || '').toLowerCase() === 'true' || process.env.NODE_ENV === 'production';
+    const commonCookieOpts = {
+        httpOnly: true,
+        secure: secureCookie,
+        sameSite: 'lax',
+        domain: cookieDomain,
+        path: '/'
+    };
+    // Set refresh token cookie (7 days)
+    res.cookie('refresh_token', refreshToken, {
+        ...commonCookieOpts,
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+    // Optionally set trusted-device cookie to bypass OTP on this device
+    if (rememberDevice) {
+        const otpTrust = jsonwebtoken_1.default.sign({ sub: user.id, tokenType: 'otp_trust' }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+        res.cookie('otp_trust', otpTrust, {
+            ...commonCookieOpts,
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+    }
     return res.json({
         success: true,
         tokens: { accessToken, refreshToken },
@@ -163,26 +227,46 @@ const verifyOtpController = async (req, res) => {
 };
 exports.verifyOtpController = verifyOtpController;
 const refreshTokenController = async (req, res) => {
-    const { refreshToken } = req.body;
+    // Prefer cookie; fallback to body for backward compatibility
+    const rtFromCookie = req.cookies?.refresh_token;
+    const rtFromBody = (req.body && req.body.refreshToken) || undefined;
+    const refreshToken = rtFromCookie || rtFromBody;
     if (!refreshToken) {
         return res.status(400).json({ success: false, message: 'Refresh token is required' });
     }
     try {
         const decoded = jsonwebtoken_1.default.verify(refreshToken, process.env.JWT_SECRET || 'secret');
+        if (decoded?.tokenType && decoded.tokenType !== 'refresh') {
+            return res.status(401).json({ success: false, message: 'Invalid refresh token' });
+        }
         const user = await user_model_1.default.findByPk(decoded.sub);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-        // Generate new access token
+        // Rotate refresh token and issue new short-lived access token
         const newAccessToken = jsonwebtoken_1.default.sign({
             sub: user.id,
             username: user.email.split('@')[0],
             role: 'USER',
             email: user.email
-        }, process.env.JWT_SECRET || 'secret', { expiresIn: '5d' });
+        }, process.env.JWT_SECRET || 'secret', { expiresIn: process.env.ACCESS_TOKEN_TTL || '30m' });
+        const newRefreshToken = jsonwebtoken_1.default.sign({ sub: user.id, tokenType: 'refresh' }, process.env.JWT_SECRET || 'secret', { expiresIn: process.env.REFRESH_TOKEN_TTL || '7d' });
+        const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+        const secureCookie = (process.env.COOKIE_SECURE || '').toLowerCase() === 'true' || process.env.NODE_ENV === 'production';
+        const commonCookieOpts = {
+            httpOnly: true,
+            secure: secureCookie,
+            sameSite: 'lax',
+            domain: cookieDomain,
+            path: '/'
+        };
+        res.cookie('refresh_token', newRefreshToken, {
+            ...commonCookieOpts,
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
         return res.json({
             success: true,
-            accessToken: newAccessToken,
+            tokens: { accessToken: newAccessToken },
         });
     }
     catch (error) {
@@ -193,11 +277,17 @@ exports.refreshTokenController = refreshTokenController;
 // Logout endpoint
 const logoutController = async (req, res) => {
     try {
-        // For now, we'll just return success since JWT tokens are stateless
-        // In a production environment, you might want to:
-        // 1. Add the token to a blacklist
-        // 2. Store blacklisted tokens in Redis
-        // 3. Check blacklist in authenticateToken middleware
+        const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+        const secureCookie = (process.env.COOKIE_SECURE || '').toLowerCase() === 'true' || process.env.NODE_ENV === 'production';
+        const clearOpts = {
+            httpOnly: true,
+            secure: secureCookie,
+            sameSite: 'lax',
+            domain: cookieDomain,
+            path: '/'
+        };
+        res.clearCookie('refresh_token', clearOpts);
+        res.clearCookie('otp_trust', clearOpts);
         return res.json({
             success: true,
             message: 'Logged out successfully'
