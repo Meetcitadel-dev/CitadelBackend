@@ -28,20 +28,34 @@ A comprehensive Node.js/TypeScript backend for a university student networking a
 ### Backend
 - **Runtime**: Node.js with TypeScript
 - **Framework**: Express.js
-- **Database**: PostgreSQL with Sequelize ORM
-- **Cache**: Upstash Redis (primary) with traditional Redis fallback
+- **Databases**:
+  - PostgreSQL with Sequelize ORM (primary relational store)
+  - MongoDB Atlas via Mongoose (auxiliary/document features)
+- **Cache/Rate-limit store**: Upstash Redis (primary) with fallback to self-hosted Redis
 - **Real-time**: Socket.io for WebSocket connections
 - **Authentication**: JWT tokens with bcrypt
-- **File Storage**: AWS S3 with CloudFront CDN
-- **Payment**: Razorpay and PhonePe integration
-- **Email**: Nodemailer with SendGrid
-- **Security**: Helmet.js, CORS, Rate limiting
+- **File Storage & CDN**: AWS S3 for object storage with CloudFront as CDN
+- **Payments**: Razorpay SDK integration
+- **Email/OTP**: Resend API for transactional email (OTP delivery)
+- **Uploads**: Multer and UploadThing mime-types for validation
+- **Security**: Helmet, CORS, configurable CSP, rate limiting
 
 ### Development Tools
 - **TypeScript**: Static type checking
 - **Docker**: Containerized development environment
-- **Database Migrations**: Sequelize migrations
+- **Database Migrations**: Sequelize CLI
 - **Environment Management**: dotenv configuration
+
+### Third-Party and Infrastructure Overview
+- **Email/OTP**: Resend (`resend`)
+- **Payments**: Razorpay (`razorpay`)
+- **Object Storage**: AWS S3 (`aws-sdk`)
+- **CDN**: AWS CloudFront (see `scripts/cloudfrontCORSFunction.js` and `CLOUDFRONT_CORS_SETUP.md`)
+- **Cache**: Upstash Redis (`@upstash/redis`) with fallback Redis (`redis`)
+- **Relational DB**: PostgreSQL (`sequelize`, `pg`)
+- **Document DB**: MongoDB Atlas (`mongoose`)
+- **Realtime**: Socket.io (`socket.io`)
+- **Security**: Helmet (`helmet`), CORS (`cors`)
 
 ## 📁 Project Structure
 
@@ -112,38 +126,54 @@ backend/
 3. **Set up environment variables**
    Create a `.env` file in the backend directory:
    ```env
-   # Database
+   # Server
+   NODE_ENV=development
+   PORT=3001
+   BASE_URL=http://localhost:3001
+   FRONTEND_URL=http://localhost:5173
+   # Comma-separated list
+   ALLOWED_ORIGINS=http://localhost:5173
+
+   # JWT
+   JWT_SECRET=your_jwt_secret_here
+
+   # PostgreSQL (Sequelize)
+   # Option A: Single DATABASE_URL (enables SSL in production)
+   # DATABASE_URL=postgres://user:password@host:5432/dbname
+   # Option B: Individual settings
    POSTGRES_DB=citadel
    POSTGRES_USER=postgres
    POSTGRES_PASSWORD=Passwordcitadel
    POSTGRES_HOST=localhost
    POSTGRES_PORT=5432
+   # Force SSL in non-local environments
+   POSTGRES_SSL=false
 
-   # JWT
-   JWT_SECRET=your_jwt_secret_here
+   # MongoDB (Atlas)
+   # Example: mongodb+srv://user:pass@cluster.mongodb.net/db
+   MONGODB_URI=
 
-   # AWS
-   AWS_ACCESS_KEY_ID=your_aws_access_key
-   AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-   AWS_REGION=your_aws_region
-   S3_BUCKET_NAME=your_s3_bucket
-   CLOUDFRONT_URL=your_cloudfront_url
+   # Redis
+   # Primary: Upstash REST API
+   UPSTASH_REDIS_REST_URL=
+   UPSTASH_REDIS_REST_TOKEN=
+   # Fallback: Traditional Redis
+   REDIS_URL=redis://localhost:6379
 
-   # Payment
-   RAZORPAY_KEY_ID=your_razorpay_key
-   RAZORPAY_KEY_SECRET=your_razorpay_secret
-   PHONEPE_MERCHANT_ID=your_phonepe_merchant_id
-   PHONEPE_SALT_KEY=your_phonepe_salt_key
-   PHONEPE_SALT_INDEX=1
+   # AWS (S3 + CloudFront)
+   AWS_ACCESS_KEY_ID=
+   AWS_SECRET_ACCESS_KEY=
+   AWS_REGION=us-east-1
+   S3_BUCKET_NAME=
+   CLOUDFRONT_URL=
 
-   # Email
-   SENDGRID_API_KEY=your_sendgrid_api_key
-   EMAIL_FROM=your_email@domain.com
+   # Email (Resend)
+   RESEND_API_KEY=
+   RESEND_FROM=noreply@hello.meetcitadel.com
 
-   # Server
-   PORT=3001
-   BASE_URL=http://localhost:3001
-   FRONTEND_URL=http://localhost:5173
+   # Payments (Razorpay)
+   RAZORPAY_KEY_ID=
+   RAZORPAY_KEY_SECRET=
    ```
 
 4. **Start services with Docker**
@@ -295,7 +325,7 @@ Create payment order
 ```
 
 #### `POST /api/v1/payments/verify`
-Verify payment
+Verify payment (Razorpay signature verification)
 
 ## 🔧 Development
 
@@ -351,7 +381,7 @@ npx sequelize-cli db:seed:undo:all
 ## 🔐 Security Features
 
 - **JWT Authentication**: Secure token-based authentication
-- **Rate Limiting**: API protection against abuse
+- **Rate Limiting**: API protection against abuse (OTP + endpoint-level)
 - **CORS Configuration**: Cross-origin resource sharing
 - **Input Validation**: Request data validation
 - **SQL Injection Protection**: Sequelize ORM with parameterized queries
@@ -392,10 +422,11 @@ npx sequelize-cli db:seed:undo:all
 ### Production Setup
 
 1. **Environment Configuration**
-   - Set all required environment variables
-   - Configure production database credentials
-   - Set up AWS S3 and CloudFront
-   - Configure payment gateway credentials
+   - Set all required environment variables (see above)
+   - Configure PostgreSQL and MongoDB Atlas credentials
+   - Set up AWS S3 and CloudFront (see `IMAGE_UPLOAD_README.md`, `CLOUDFRONT_CORS_SETUP.md`)
+   - Configure Razorpay credentials
+   - Configure Upstash Redis (or provide `REDIS_URL` fallback)
 
 2. **Database Setup**
    ```bash
