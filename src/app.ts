@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
 import connectMongoDB from './config/mongodb';
@@ -33,6 +34,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(cookieParser());
 // CORS configuration using environment variables
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
