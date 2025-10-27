@@ -7,6 +7,7 @@ const router = Router();
 // Public routes
 router.post('/create-order', paymentController.createOrder);
 router.post('/create-phonepe-order', paymentController.createPhonePeOrder);
+router.post('/create-cash-payment', paymentController.createCashPayment);
 router.post('/verify', paymentController.verifyPayment);
 
 // Protected routes (require authentication)

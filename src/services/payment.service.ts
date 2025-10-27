@@ -1,7 +1,14 @@
-import phonepeService from './phonepe.service';
+import Razorpay from 'razorpay';
 import Booking from '../models/booking.model';
 import Payment from '../models/payment.model';
 import Event from '../models/event.model';
+import DinnerEvent from '../models/dinnerEvent.model';
+
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID as string,
+  key_secret: process.env.RAZORPAY_KEY_SECRET as string,
+});
 
 class PaymentService {
 
@@ -18,6 +25,8 @@ class PaymentService {
     notes?: string;
   }) {
     try {
+      console.log('Creating order with data:', bookingData);
+
       // Create booking record
       const booking = new Booking({
         userId: bookingData.userId,
@@ -34,37 +43,50 @@ class PaymentService {
       });
 
       await booking.save();
+      console.log('Booking created:', booking._id);
 
-      // Create PhonePe order
-      const merchantTransactionId = `booking_${booking._id}_${Date.now()}`;
-      const callbackUrl = `${process.env.BASE_URL}/api/payments/verify`;
-      const redirectUrl = `${process.env.FRONTEND_URL}/payment-success`;
+      // Create Razorpay order
+      const razorpayOrder = await razorpay.orders.create({
+        amount: bookingData.amount * 100, // Convert to paise
+        currency: bookingData.currency,
+        receipt: `booking_${booking._id}`,
+        notes: {
+          bookingId: booking._id?.toString(),
+          userId: bookingData.userId,
+          eventId: bookingData.eventId,
+          eventType: bookingData.eventType,
+          location: bookingData.location,
+          bookingDate: bookingData.bookingDate.toISOString(),
+          bookingTime: bookingData.bookingTime
+        }
+      });
 
-      const order = await phonepeService.createOrder(
-        bookingData.amount,
-        bookingData.currency,
-        merchantTransactionId,
-        callbackUrl,
-        redirectUrl
-      );
+      console.log('Razorpay order created:', razorpayOrder.id);
 
       // Create payment record
       const payment = new Payment({
         bookingId: booking._id?.toString() || '',
-        phonepeOrderId: order.data.merchantTransactionId,
+        razorpayOrderId: razorpayOrder.id,
         amount: bookingData.amount,
         currency: bookingData.currency,
         status: 'pending'
       });
 
       await payment.save();
+      console.log('Payment record created:', payment._id);
 
-      // Update booking with order ID
-      booking.phonepeOrderId = order.data.merchantTransactionId;
+      // Update booking with Razorpay order ID
+      (booking as any).razorpayOrderId = razorpayOrder.id;
       await booking.save();
 
       return {
-        order: order,
+        order: {
+          id: razorpayOrder.id,
+          amount: razorpayOrder.amount,
+          currency: razorpayOrder.currency,
+          receipt: razorpayOrder.receipt,
+          status: razorpayOrder.status
+        },
         booking: booking,
         payment: payment
       };
@@ -74,39 +96,61 @@ class PaymentService {
     }
   }
 
-  async verifyPayment(merchantTransactionId: string) {
+  async verifyPayment(razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string) {
     try {
-      // Verify payment with PhonePe
-      const verificationResult = await phonepeService.verifyPayment(merchantTransactionId);
+      console.log('Verifying payment:', { razorpayOrderId, razorpayPaymentId });
 
-      if (verificationResult.code !== 'PAYMENT_SUCCESS') {
-        throw new Error('Payment verification failed');
-      }
-
-      // Find payment record
-      const payment = await Payment.findOne({ phonepeOrderId: merchantTransactionId });
+      // Find payment record by Razorpay order ID
+      const payment = await Payment.findOne({ razorpayOrderId });
       if (!payment) {
+        console.error('Payment record not found for order:', razorpayOrderId);
         throw new Error('Payment record not found');
       }
 
+      // Verify signature using Razorpay SDK
+      const crypto = require('crypto');
+      const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+      const data = razorpayOrderId + '|' + razorpayPaymentId;
+      shasum.update(data);
+      const digest = shasum.digest('hex');
+
+      if (digest !== razorpaySignature) {
+        console.error('Signature verification failed');
+        throw new Error('Payment signature verification failed');
+      }
+
+      console.log('Signature verified successfully');
+
       // Update payment status
       payment.status = 'completed';
-      payment.phonepePaymentId = verificationResult.data.transactionId;
-      payment.signature = verificationResult.data.signature;
+      (payment as any).razorpayPaymentId = razorpayPaymentId;
+      (payment as any).razorpaySignature = razorpaySignature;
       await payment.save();
 
-      // Update booking status
-      const booking = await Booking.findOne({ phonepeOrderId: merchantTransactionId });
+      // Find and update booking status
+      const booking = await Booking.findById(payment.bookingId);
       if (booking) {
         booking.status = 'confirmed';
-        booking.phonepePaymentId = verificationResult.data.transactionId;
+        (booking as any).razorpayPaymentId = razorpayPaymentId;
         await booking.save();
 
-        // Update event booking count
+        console.log('Booking confirmed:', booking._id);
+
+        // Update event booking count (for regular Event model)
         const event = await Event.findById(booking.eventId);
         if (event) {
-          event.currentBookings += booking.guests;
+          (event as any).currentBookings = ((event as any).currentBookings || 0) + (booking as any).guests;
           await event.save();
+          console.log('Event booking count updated');
+        }
+
+        // Also try to update DinnerEvent if it exists
+        const dinnerEvent = await DinnerEvent.findById(booking.eventId);
+        if (dinnerEvent) {
+          dinnerEvent.currentAttendees += (booking as any).guests || 1;
+          dinnerEvent.attendeeIds.push(booking.userId);
+          await dinnerEvent.save();
+          console.log('DinnerEvent attendees updated');
         }
       }
 
@@ -118,6 +162,78 @@ class PaymentService {
       };
     } catch (error) {
       console.error('Error verifying payment:', error);
+      throw error;
+    }
+  }
+
+  async createCashPayment(bookingData: {
+    userId: string;
+    eventId: string;
+    eventType: string;
+    amount: number;
+    currency: string;
+    bookingDate: Date;
+    bookingTime: string;
+    location: string;
+    guests: number;
+    notes?: string;
+  }) {
+    try {
+      console.log('Creating cash payment booking:', bookingData);
+
+      // Create booking record
+      const booking = new Booking({
+        userId: bookingData.userId,
+        eventId: bookingData.eventId,
+        eventType: bookingData.eventType,
+        amount: bookingData.amount,
+        currency: bookingData.currency,
+        bookingDate: bookingData.bookingDate,
+        bookingTime: bookingData.bookingTime,
+        location: bookingData.location,
+        guests: bookingData.guests,
+        notes: bookingData.notes,
+        status: 'confirmed' // Cash payment is immediately confirmed
+      });
+
+      await booking.save();
+      console.log('Cash booking created:', booking._id);
+
+      // Create payment record with cash status
+      const payment = new Payment({
+        bookingId: booking._id?.toString() || '',
+        amount: bookingData.amount,
+        currency: bookingData.currency,
+        status: 'completed', // Cash payment is immediately completed
+        paymentMethod: 'cash'
+      });
+
+      await payment.save();
+      console.log('Cash payment record created:', payment._id);
+
+      // Update event attendees (for DinnerEvent)
+      const dinnerEvent = await DinnerEvent.findById(bookingData.eventId);
+      if (dinnerEvent) {
+        dinnerEvent.currentAttendees += bookingData.guests;
+        dinnerEvent.attendeeIds.push(bookingData.userId);
+        await dinnerEvent.save();
+        console.log('DinnerEvent attendees updated');
+      }
+
+      // Also update regular Event if it exists
+      const event = await Event.findById(bookingData.eventId);
+      if (event) {
+        (event as any).currentBookings = ((event as any).currentBookings || 0) + bookingData.guests;
+        await event.save();
+        console.log('Event booking count updated');
+      }
+
+      return {
+        booking: booking,
+        payment: payment
+      };
+    } catch (error) {
+      console.error('Error creating cash payment:', error);
       throw error;
     }
   }

@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import paymentService from '../services/payment.service';
 import Event from '../models/event.model';
+import DinnerEvent from '../models/dinnerEvent.model';
+import Booking from '../models/booking.model';
+import Payment from '../models/payment.model';
+import User from '../models/user.model';
 import phonepeService from '../services/phonepe.service';
+import { sendBookingConfirmationEmail } from '../services/bookingEmail.service';
 
 class PaymentController {
   createPhonePeOrder = async (req: Request, res: Response) => {
@@ -66,22 +71,56 @@ class PaymentController {
 
       // Validate required fields
       if (!userId || !eventId || !eventType || !amount || !bookingDate || !bookingTime || !location) {
+        const missingFields = [];
+        if (!userId) missingFields.push('userId');
+        if (!eventId) missingFields.push('eventId');
+        if (!eventType) missingFields.push('eventType');
+        if (!amount) missingFields.push('amount');
+        if (!bookingDate) missingFields.push('bookingDate');
+        if (!bookingTime) missingFields.push('bookingTime');
+        if (!location) missingFields.push('location');
+
+        console.error('Missing required fields:', missingFields, 'Received body:', req.body);
+
         return res.status(400).json({
           success: false,
-          message: 'Missing required fields'
+          message: 'Missing required fields',
+          missingFields: missingFields,
+          receivedFields: {
+            userId: !!userId,
+            eventId: !!eventId,
+            eventType: !!eventType,
+            amount: !!amount,
+            bookingDate: !!bookingDate,
+            bookingTime: !!bookingTime,
+            location: !!location
+          }
         });
       }
 
       // Check if event exists and is active
-      const event = await Event.findById(eventId);
+      // Try to find in DinnerEvent first (for dinner bookings), then Event
+      console.log('Looking for event with ID:', eventId);
+      let event = await DinnerEvent.findById(eventId);
+
       if (!event) {
+        event = await Event.findById(eventId);
+      }
+
+      if (!event) {
+        console.error('Event not found with ID:', eventId);
         return res.status(404).json({
           success: false,
-          message: 'Event not found'
+          message: 'Event not found',
+          eventId: eventId
         });
       }
 
-      if (event.status !== 'active') {
+      console.log('Event found:', event._id, 'Type:', event.constructor.name);
+
+      // Check if event is active (DinnerEvent uses 'status', Event uses 'status')
+      const eventStatus = (event as any).status;
+      if (eventStatus && eventStatus !== 'active' && eventStatus !== 'upcoming') {
         return res.status(400).json({
           success: false,
           message: 'Event is not available for booking'
@@ -89,7 +128,11 @@ class PaymentController {
       }
 
       // Check if event has capacity
-      if (event.currentBookings + guests > event.maxGuests) {
+      // DinnerEvent uses 'currentAttendees' and 'maxAttendees', Event uses 'currentBookings' and 'maxGuests'
+      const currentBookings = (event as any).currentAttendees || (event as any).currentBookings || 0;
+      const maxCapacity = (event as any).maxAttendees || (event as any).maxGuests || 6;
+
+      if (currentBookings + guests > maxCapacity) {
         return res.status(400).json({
           success: false,
           message: 'Event is fully booked'
@@ -130,17 +173,17 @@ class PaymentController {
 
   verifyPayment = async (req: Request, res: Response) => {
     try {
-      const { merchantTransactionId } = req.body;
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
       // Validate required fields
-      if (!merchantTransactionId) {
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
         return res.status(400).json({
           success: false,
-          message: 'Missing required fields: merchantTransactionId is required'
+          message: 'Missing required fields: razorpay_order_id, razorpay_payment_id, and razorpay_signature are required'
         });
       }
 
-      const result = await paymentService.verifyPayment(merchantTransactionId);
+      const result = await paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature);
 
       res.json({
         success: true,
@@ -155,6 +198,168 @@ class PaymentController {
       res.status(400).json({
         success: false,
         message: 'Payment verification failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // Cash Payment Endpoint - Simple Direct Booking
+  createCashPayment = async (req: Request, res: Response) => {
+    try {
+      const {
+        userId,
+        eventId,
+        eventType,
+        amount,
+        currency = 'INR',
+        bookingDate,
+        bookingTime,
+        location,
+        guests = 1,
+        notes
+      } = req.body;
+
+      // Validate required fields
+      if (!userId || !eventId || !eventType || !amount || !bookingDate || !bookingTime || !location) {
+        const missingFields = [];
+        if (!userId) missingFields.push('userId');
+        if (!eventId) missingFields.push('eventId');
+        if (!eventType) missingFields.push('eventType');
+        if (!amount) missingFields.push('amount');
+        if (!bookingDate) missingFields.push('bookingDate');
+        if (!bookingTime) missingFields.push('bookingTime');
+        if (!location) missingFields.push('location');
+
+        console.error('Missing required fields for cash payment:', missingFields);
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields',
+          missingFields
+        });
+      }
+
+      // Check if event exists
+      let event = await DinnerEvent.findById(eventId);
+      if (!event) {
+        event = await Event.findById(eventId);
+      }
+
+      if (!event) {
+        console.error('Event not found for cash payment:', eventId);
+        return res.status(404).json({
+          success: false,
+          message: 'Event not found'
+        });
+      }
+
+      // Check capacity
+      const currentBookings = (event as any).currentAttendees || (event as any).currentBookings || 0;
+      const maxCapacity = (event as any).maxAttendees || (event as any).maxGuests || 6;
+
+      if (currentBookings + guests > maxCapacity) {
+        return res.status(400).json({
+          success: false,
+          message: 'Event is fully booked'
+        });
+      }
+
+      console.log('✅ Creating direct booking for user:', userId);
+
+      // Create booking directly (no payment service)
+      const booking = new Booking({
+        userId,
+        eventId,
+        eventType,
+        amount,
+        currency,
+        bookingDate: new Date(bookingDate),
+        bookingTime,
+        location,
+        guests,
+        notes,
+        status: 'confirmed' // Immediately confirmed for cash
+      });
+
+      await booking.save();
+      console.log('✅ Booking created:', booking._id);
+
+      // Create payment record (without razorpay fields)
+      const payment = new Payment({
+        bookingId: booking._id?.toString() || '',
+        amount,
+        currency,
+        status: 'completed', // Immediately completed for cash
+        paymentMethod: 'cash',
+        // Don't set razorpayOrderId, razorpayPaymentId - leave them null
+      });
+
+      await payment.save();
+      console.log('✅ Payment record created:', payment._id);
+
+      // Update event attendees
+      if (event instanceof DinnerEvent) {
+        (event as any).currentAttendees += guests;
+        (event as any).attendeeIds.push(userId);
+        await event.save();
+        console.log('✅ DinnerEvent attendees updated');
+      } else if (event instanceof Event) {
+        (event as any).currentBookings = ((event as any).currentBookings || 0) + guests;
+        await event.save();
+        console.log('✅ Event booking count updated');
+      }
+
+      // Get user details and send email
+      const user = await User.findById(userId);
+      if (user && user.email) {
+        try {
+          console.log('📧 Sending booking confirmation email to:', user.email);
+
+          await sendBookingConfirmationEmail({
+            userName: user.name || user.username || 'Guest',
+            userEmail: user.email,
+            eventDate: bookingDate,
+            eventTime: bookingTime,
+            city: (event as any).city || 'Unknown',
+            area: (event as any).area || 'Unknown',
+            venue: (event as any).venue,
+            venueAddress: (event as any).venueAddress,
+            bookingFee: amount,
+            paymentMethod: 'cash',
+            paymentGateway: 'cash',
+            paymentStatus: 'completed',
+            bookingId: booking._id?.toString() || ''
+          });
+
+          console.log('✅ Booking confirmation email sent successfully');
+        } catch (emailError) {
+          // Don't fail the booking if email fails
+          console.error('❌ Failed to send booking confirmation email:', emailError);
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Dinner booked successfully!',
+        data: {
+          bookingId: booking._id?.toString(),
+          booking: {
+            id: booking._id,
+            status: booking.status,
+            eventId: booking.eventId,
+            amount: booking.amount
+          },
+          payment: {
+            id: payment._id,
+            status: payment.status,
+            paymentMethod: payment.paymentMethod
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error creating cash payment:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to book dinner',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

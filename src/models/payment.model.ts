@@ -1,34 +1,89 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPayment extends Document {
-  userId: string;
+  bookingId: string;
+  userId?: string;
   amount: number;
-  status: string;
+  currency: string;
+  status: 'pending' | 'completed' | 'failed';
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+  phonepeOrderId?: string;
+  phonepePaymentId?: string;
+  signature?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const PaymentSchema = new Schema<IPayment>({
-  userId: {
-    type: String,
-    required: true,
-    ref: 'User'
+const PaymentSchema = new Schema<IPayment>(
+  {
+    bookingId: {
+      type: String,
+      required: true,
+      ref: 'Booking',
+      index: true,
+    },
+    userId: {
+      type: String,
+      ref: 'User',
+    },
+    amount: {
+      type: Number,
+      required: true,
+    },
+    currency: {
+      type: String,
+      default: 'INR',
+    },
+    status: {
+      type: String,
+      required: true,
+      enum: ['pending', 'completed', 'failed'],
+      default: 'pending',
+      index: true,
+    },
+
+    // ✅ Razorpay fields
+    razorpayOrderId: {
+      type: String,
+      index: {
+        unique: true,
+        partialFilterExpression: { razorpayOrderId: { $type: 'string' } },
+      },
+    },
+    razorpayPaymentId: {
+      type: String,
+      index: {
+        unique: true,
+        partialFilterExpression: { razorpayPaymentId: { $type: 'string' } },
+      },
+    },
+    razorpaySignature: String,
+
+    // ✅ PhonePe fields (optional unique per payment)
+    phonepeOrderId: {
+      type: String,
+      index: {
+        unique: true,
+        partialFilterExpression: { phonepeOrderId: { $type: 'string' } },
+      },
+    },
+    phonepePaymentId: {
+      type: String,
+      index: {
+        unique: true,
+        partialFilterExpression: { phonepePaymentId: { $type: 'string' } },
+      },
+    },
+
+    signature: String,
   },
-  amount: {
-    type: Number,
-    required: true
-  },
-  status: {
-    type: String,
-    required: true,
-    enum: ['pending', 'completed', 'failed'],
-    default: 'pending'
+  {
+    timestamps: true,
+    collection: 'payments',
   }
-}, {
-  timestamps: true,
-  collection: 'payments'
-});
+);
 
 const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
-
 export default Payment;
