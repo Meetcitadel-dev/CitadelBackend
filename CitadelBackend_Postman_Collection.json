@@ -1,0 +1,1717 @@
+{
+  "info": {
+    "name": "CitadelBackend API Collection",
+    "description": "Comprehensive API collection for CitadelBackend - A university student networking platform",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔧 Test & Health",
+      "item": [
+        {
+          "name": "Test Server",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Check User Exists",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@university.edu\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/check-user",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "check-user"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@university.edu\",\n  \"isLogin\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "send-otp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@university.edu\",\n  \"otp\": \"123456\",\n  \"isLogin\": false,\n  \"rememberDevice\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "verify-otp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👤 Profile Management",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"gender\": \"Male\",\n  \"degree\": \"Computer Science\",\n  \"year\": \"3rd\",\n  \"skills\": [\"JavaScript\", \"Python\", \"React\"],\n  \"aboutMe\": \"Passionate about technology and innovation\",\n  \"sports\": \"Football, Basketball\",\n  \"movies\": \"Action, Drama\",\n  \"tvShows\": \"Breaking Bad, Friends\",\n  \"teams\": \"Manchester United\",\n  \"portfolioLink\": \"https://johndoe.dev\",\n  \"phoneNumber\": \"+1234567890\",\n  \"dateOfBirth\": \"2000-01-01\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/update",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "update"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload User Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Images",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/images",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "images"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Image to Slot",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slot\": 0,\n  \"userImageId\": 123\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/images/slot",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "images", "slot"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Image Slot",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/images/slot/0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "images", "slot", "0"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User Image",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/images/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "images", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Signed URL",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/images/123/signed-url",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "images", "123", "signed-url"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/delete-account",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "profile", "delete-account"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🎓 Onboarding",
+      "item": [
+        {
+          "name": "Complete Onboarding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"username\": \"johndoe\",\n  \"universityId\": \"university_id_here\",\n  \"degree\": \"Computer Science\",\n  \"year\": \"3rd\",\n  \"gender\": \"Male\",\n  \"dateOfBirth\": \"2000-01-01\",\n  \"skills\": [\"JavaScript\", \"Python\", \"React\"],\n  \"aboutMe\": \"Passionate about technology\",\n  \"sports\": \"Football, Basketball\",\n  \"movies\": \"Action, Drama\",\n  \"tvShows\": \"Breaking Bad, Friends\",\n  \"teams\": \"Manchester United\",\n  \"portfolioLink\": \"https://johndoe.dev\",\n  \"phoneNumber\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/onboarding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "onboarding"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Onboarding Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/onboarding/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "onboarding", "status"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏫 Universities",
+      "item": [
+        {
+          "name": "Get Universities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/universities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "universities"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create University",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Indian Institute of Technology Delhi\",\n  \"domain\": \"iitd.ac.in\",\n  \"country\": \"India\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/universities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "universities"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔍 Explore & Discovery",
+      "item": [
+        {
+          "name": "Get Explore Profiles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/explore/profiles?limit=20&offset=0&search=&sortBy=match_score&gender=&years=&universities=&skills=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "explore", "profiles"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "sortBy",
+                  "value": "match_score"
+                },
+                {
+                  "key": "gender",
+                  "value": ""
+                },
+                {
+                  "key": "years",
+                  "value": ""
+                },
+                {
+                  "key": "universities",
+                  "value": ""
+                },
+                {
+                  "key": "skills",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Filters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/explore/filters",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "explore", "filters"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Select Adjective",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123,\n  \"adjective\": \"Smart\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/explore/adjectives/select",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "explore", "adjectives", "select"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Adjective Selection",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/explore/adjectives/check/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "explore", "adjectives", "check", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Adjective Matches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/explore/adjectives/matches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "explore", "adjectives", "matches"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Track Profile View",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/explore/track-view",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "explore", "track-view"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔍 Enhanced Explore",
+      "item": [
+        {
+          "name": "Get User Gender",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-explore/profile/gender",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-explore", "profile", "gender"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Adjective Selections",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-explore/adjectives/selections/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-explore", "adjectives", "selections", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Adjectives",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-explore/adjectives/available/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-explore", "adjectives", "available", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Select Adjective (Enhanced)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123,\n  \"adjective\": \"Smart\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-explore/adjectives/select",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-explore", "adjectives", "select"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Match State",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-explore/matches/state/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-explore", "matches", "state", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Connect After Match",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-explore/matches/connect",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-explore", "matches", "connect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ice Breaking Prompt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-explore/matches/ice-breaking/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-explore", "matches", "ice-breaking", "123"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🤝 Connections",
+      "item": [
+        {
+          "name": "Get Connections",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/connections",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "connections"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Manage Connection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123,\n  \"action\": \"connect\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/connections/manage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "connections", "manage"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Connection Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/connections/status/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "connections", "status", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Connections Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/connections/count",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "connections", "count"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👥 User Profiles",
+      "item": [
+        {
+          "name": "Get User Profile by Username",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/johndoe",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "johndoe"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Mutual Friends",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/johndoe/mutual-friends",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "johndoe", "mutual-friends"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Username",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newusername\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/username",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "username"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Grid View Profiles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/gridview",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "gridview"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Grid View Filters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/gridview/filters",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "gridview", "filters"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💬 Chat System",
+      "item": [
+        {
+          "name": "Get Active Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chats", "active"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Matched Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats/matches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chats", "matches"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation Messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats/123/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chats", "123", "messages"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hello! How are you?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats/123/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chats", "123", "messages"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Messages as Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats/123/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chats", "123", "read"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation by User ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats/conversation/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chats", "conversation", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/chats/conversation/details/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "chats", "conversation", "details", "123"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💬 Enhanced Chat",
+      "item": [
+        {
+          "name": "Get Matched Conversations (Enhanced)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-chats/matches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-chats", "matches"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Connection Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-chats/connection-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-chats", "connection-request"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dismiss Match Prompt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-chats/dismiss",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-chats", "dismiss"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Move Chat to Active",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-chats/move-to-active",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-chats", "move-to-active"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Chat History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-chats/chat-history/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-chats", "chat-history", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Message (Enhanced)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": 123,\n  \"message\": \"Hello! How are you?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enhanced-chats/send-message",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "enhanced-chats", "send-message"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👥 Group Chat",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Study Group\",\n  \"description\": \"Study group for CS students\",\n  \"memberIds\": [123, 456, 789]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Group Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Group",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Study Group\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Group",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Members to Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberIds\": [123, 456, 789]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123", "members"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Member from Group",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123/members/456",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123", "members", "456"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Leave Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123/leave",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123", "leave"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Group Messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123", "messages"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Group Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello everyone!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123", "messages"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Group Messages as Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/groups/123/messages/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "groups", "123", "messages", "read"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔔 Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Handle Connection Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": 123,\n  \"action\": \"accept\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/connection-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "connection-request"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/123/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "123", "read"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "💳 Payments",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"currency\": \"INR\",\n  \"receipt\": \"receipt_123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/create-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "create-order"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create PhonePe Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"currency\": \"INR\",\n  \"receipt\": \"receipt_123\",\n  \"notes\": \"Payment for event booking\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/create-phonepe-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "create-phonepe-order"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"txn_123\",\n  \"status\": \"SUCCESS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "verify"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/booking/123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "booking", "123"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/user/123/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "user", "123", "bookings"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "events"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tech Conference 2024\",\n  \"description\": \"Annual tech conference\",\n  \"date\": \"2024-12-01\",\n  \"time\": \"10:00\",\n  \"location\": \"Convention Center\",\n  \"maxGuests\": 100,\n  \"price\": 500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "events"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-set access token from environment if available",
+          "if (pm.environment.get('accessToken')) {",
+          "    pm.request.headers.add({",
+          "        key: 'Authorization',",
+          "        value: 'Bearer ' + pm.environment.get('accessToken')",
+          "    });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-extract tokens from auth responses",
+          "if (pm.response.json() && pm.response.json().tokens) {",
+          "    const tokens = pm.response.json().tokens;",
+          "    if (tokens.accessToken) {",
+          "        pm.environment.set('accessToken', tokens.accessToken);",
+          "    }",
+          "    if (tokens.refreshToken) {",
+          "        pm.environment.set('refreshToken', tokens.refreshToken);",
+          "    }",
+          "}",
+          "",
+          "// Auto-extract user ID from profile responses",
+          "if (pm.response.json() && pm.response.json().data && pm.response.json().data.id) {",
+          "    pm.environment.set('userId', pm.response.json().data.id);",
+          "}"
+        ]
+      }
+    }
+  ]
+}

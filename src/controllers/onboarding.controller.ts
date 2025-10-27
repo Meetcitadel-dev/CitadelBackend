@@ -21,42 +21,50 @@ export const completeOnboarding = async (req: Request, res: Response) => {
       email
     } = req.body;
 
-    // Validate required fields
-    if (!name || !university || !degree || !year || !gender || !dob || !skills || !friends) {
-      return res.status(400).json({ 
+    // Validate required fields - only university, degree, year, and gender are required
+    if (!university || !degree || !year || !gender) {
+      return res.status(400).json({
         error: 'Missing required fields',
-        required: ['name', 'university', 'degree', 'year', 'gender', 'dob', 'skills', 'friends']
+        required: ['university', 'degree', 'year', 'gender'],
+        received: { university, degree, year, gender, name, dob, skills, friends }
       });
     }
 
     // Find the user
-    const user = await User.findByPk(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Parse date of birth
-    const dateOfBirth = new Date(`${dob.year}-${dob.month}-${dob.day}`);
+    // Parse date of birth if provided
+    let dateOfBirth = undefined;
+    if (dob && dob.year && dob.month && dob.day) {
+      dateOfBirth = new Date(`${dob.year}-${dob.month}-${dob.day}`);
+    }
 
     // Generate username if not already set
     let username = user.username;
-    if (!username) {
+    if (!username && name) {
       username = await generateUsername(name);
     }
 
-    // Update user profile
-    await user.update({
-      name,
-      username,
+    // Update user profile - only update fields that are provided
+    const updateData: any = {
       universityId: university.id,
       degree,
       year,
       gender,
-      dateOfBirth,
-      skills,
-      friends,
       isProfileComplete: true
-    });
+    };
+
+    if (name) updateData.name = name;
+    if (username) updateData.username = username;
+    if (dateOfBirth) updateData.dateOfBirth = dateOfBirth;
+    if (skills) updateData.skills = skills;
+    if (friends) updateData.friends = friends;
+
+    Object.assign(user, updateData);
+    await user.save();
 
     res.json({
       success: true,
@@ -91,7 +99,7 @@ export const getOnboardingStatus = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const user = await User.findByPk(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

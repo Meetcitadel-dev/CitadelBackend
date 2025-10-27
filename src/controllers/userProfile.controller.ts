@@ -6,7 +6,7 @@ import University from '../models/university.model';
 import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
-import { Op } from 'sequelize';
+// Removed Sequelize Op import - using Mongoose queries instead
 
 // Get user profile by username
 export const getUserProfileByUsername = async (req: Request, res: Response) => {

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
+// Removed Sequelize Op import - using Mongoose queries instead
 import User from '../models/user.model';
 import Connection from '../models/connection.model';
 import Match from '../models/match.model';

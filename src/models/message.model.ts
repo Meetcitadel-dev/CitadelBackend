@@ -1,78 +1,39 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import sequelize from '../config/db';
+import mongoose, { Schema, Document } from 'mongoose';
 
-export interface MessageAttributes {
-  id: string;
+export interface IMessage extends Document {
   conversationId: string;
-  senderId: number;
-  text: string;
+  senderId: string;
+  content: string;
   status: 'sent' | 'delivered' | 'read';
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface MessageCreationAttributes extends Optional<MessageAttributes, 'id' | 'status'> {}
-
-class Message extends Model<MessageAttributes, MessageCreationAttributes> implements MessageAttributes {
-  public id!: string;
-  public conversationId!: string;
-  public senderId!: number;
-  public text!: string;
-  public status!: 'sent' | 'delivered' | 'read';
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-Message.init(
-  {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    conversationId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: 'conversations',
-        key: 'id',
-      },
-    },
-    senderId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
-    },
-    text: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
-    status: {
-      type: DataTypes.ENUM('sent', 'delivered', 'read'),
-      allowNull: false,
-      defaultValue: 'sent',
-    },
+const MessageSchema = new Schema<IMessage>({
+  conversationId: {
+    type: String,
+    required: true,
+    ref: 'Conversation'
   },
-  {
-    sequelize,
-    modelName: 'Message',
-    tableName: 'messages',
-    timestamps: true,
-    indexes: [
-      {
-        fields: ['conversationId', 'createdAt'],
-      },
-      {
-        fields: ['senderId'],
-      },
-      {
-        fields: ['status'],
-      },
-    ],
+  senderId: {
+    type: String,
+    required: true,
+    ref: 'User'
+  },
+  content: {
+    type: String,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['sent', 'delivered', 'read'],
+    default: 'sent'
   }
-);
+}, {
+  timestamps: true,
+  collection: 'messages'
+});
 
-export default Message; 
+const Message = mongoose.model<IMessage>('Message', MessageSchema);
+
+export default Message;

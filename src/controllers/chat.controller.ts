@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
-import sequelize from '../config/db';
+// Removed Sequelize Op import - using Mongoose queries instead
+// Removed Sequelize db import - using MongoDB with Mongoose
 import User from '../models/user.model';
 import Connection from '../models/connection.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';

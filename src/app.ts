@@ -4,7 +4,6 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
-import connectMongoDB from './config/mongodb';
 import universityRoutes from './routes/university.routes';
 import authRoutes from './routes/auth.routes';
 import profileRoutes from './routes/profile.routes';
@@ -18,6 +17,9 @@ import chatRoutes from './routes/chat.routes';
 import enhancedChatRoutes from './routes/enhancedChat.routes';
 import groupChatRoutes from './routes/groupChat.routes';
 import paymentRoutes from './routes/payment.routes';
+import quizRoutes from './routes/quiz.routes';
+import dinnerPreferencesRoutes from './routes/dinnerPreferences.routes';
+import dinnerEventsRoutes from './routes/dinnerEvents.routes';
 
 const app = express();
 
@@ -45,8 +47,6 @@ app.use(cors({
   credentials: true 
 }));
 
-// Connect to MongoDB
-connectMongoDB();
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
@@ -69,5 +69,8 @@ app.use('/api/v1/group-chats', groupChatRoutes); // Add group chat routes
 app.use('/api/v1/groups', groupChatRoutes); // Add alias for groups endpoint
 app.use('/api/v1/payments', paymentRoutes); // Add payment routes
 app.use('/api/payments', paymentRoutes); // Add alias for frontend compatibility
+app.use('/api/v1/quiz', quizRoutes); // Add quiz routes
+app.use('/api/v1/dinner-preferences', dinnerPreferencesRoutes); // Add dinner preferences routes
+app.use('/api/v1/dinner-events', dinnerEventsRoutes); // Add dinner events routes
 
 export default app;

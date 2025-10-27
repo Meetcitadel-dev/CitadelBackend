@@ -1,63 +1,34 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPayment extends Document {
-  bookingId: string;
-  phonepeOrderId: string;
-  phonepePaymentId?: string;
+  userId: string;
   amount: number;
-  currency: string;
-  status: 'pending' | 'completed' | 'failed';
-  signature?: string;
-  paymentMethod?: string;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const paymentSchema = new Schema<IPayment>({
-  bookingId: {
+const PaymentSchema = new Schema<IPayment>({
+  userId: {
     type: String,
     required: true,
-    index: true
-  },
-  phonepeOrderId: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true
-  },
-  phonepePaymentId: {
-    type: String,
-    unique: true,
-    sparse: true
+    ref: 'User'
   },
   amount: {
     type: Number,
-    required: true,
-    min: 0
-  },
-  currency: {
-    type: String,
-    default: 'INR'
+    required: true
   },
   status: {
     type: String,
+    required: true,
     enum: ['pending', 'completed', 'failed'],
     default: 'pending'
-  },
-  signature: {
-    type: String
-  },
-  paymentMethod: {
-    type: String
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'payments'
 });
 
-// Indexes for efficient queries
-paymentSchema.index({ bookingId: 1 });
-paymentSchema.index({ phonepeOrderId: 1 });
-paymentSchema.index({ status: 1 });
-paymentSchema.index({ createdAt: -1 });
+const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
 
-export default mongoose.model<IPayment>('Payment', paymentSchema); 
+export default Payment;

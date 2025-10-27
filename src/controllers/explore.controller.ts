@@ -9,7 +9,7 @@ import AdjectiveMatch from '../models/adjectiveMatch.model';
 import Interaction from '../models/interaction.model';
 import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 import websocketService from '../services/websocket.service';
-import { Op } from 'sequelize';
+// Removed Sequelize Op import - using Mongoose queries instead
 
 // Adjective pool for matching
 const ADJECTIVES = [

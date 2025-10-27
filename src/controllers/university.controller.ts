@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import University from '../models/university.model';
+import University, { IUniversity } from '../models/university.model';
 import redisClient, { safeRedisCommand } from '../config/redis';
 import { levenshtein } from '../utils/levenshtein';
-import { Op } from 'sequelize';
+// Removed Sequelize Op import - using Mongoose queries instead
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours
 const SEARCH_CACHE_TTL = 60 * 5; // 5 minutes for search results
@@ -26,20 +26,15 @@ export const getUniversities = async (req: Request, res: Response) => {
     }
 
     console.log(`🔍 University cache miss, querying database for: "${search}"`);
-    let universities: University[];
+    let universities: IUniversity[];
 
     if (search && search.length >= 2) {
       // Use database search with ILIKE for better performance
-      universities = await University.findAll({
-        where: {
-          name: {
-            [Op.iLike]: `%${search}%`
-          }
-        },
-        order: [['name', 'ASC']],
-        limit: limit + 50, // Get extra for fuzzy matching
-        offset: 0 // Don't offset here, we'll handle it after fuzzy search
-      });
+      universities = await University.find({
+        name: { $regex: search, $options: 'i' }
+      })
+      .sort({ name: 1 })
+      .limit(limit + 50); // Get extra for fuzzy matching
 
       // Apply fuzzy search only if we have results and search is specific
       if (universities.length > 0 && search.length >= 3) {
@@ -54,11 +49,9 @@ export const getUniversities = async (req: Request, res: Response) => {
       }
     } else if (!search) {
       // For empty search, get popular universities (you might want to add a popularity field)
-      universities = await University.findAll({
-        order: [['name', 'ASC']],
-        limit: limit + offset,
-        offset: 0
-      });
+      universities = await University.find({})
+        .sort({ name: 1 })
+        .limit(limit + offset);
     } else {
       // Search too short, return empty
       universities = [];
@@ -100,12 +93,10 @@ export const createUniversity = async (req: Request, res: Response) => {
 
     // Check if university already exists
     const existingUniversity = await University.findOne({
-      where: {
-        [require('sequelize').Op.or]: [
-          { name: name },
-          { domain: domain }
-        ]
-      }
+      $or: [
+        { name: name },
+        { domain: domain }
+      ]
     });
 
     if (existingUniversity) {

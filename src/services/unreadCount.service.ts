@@ -1,4 +1,4 @@
-import { Op } from 'sequelize';
+// Removed Sequelize Op; using Mongoose filtering instead
 import UserUnreadCount from '../models/userUnreadCount.model';
 import GroupMember from '../models/groupMember.model';
 import websocketService from './websocket.service';
@@ -9,28 +9,13 @@ class UnreadCountService {
    */
   async incrementUnreadCount(userId: number, chatId: number, isGroup: boolean, messageId?: number | string): Promise<number> {
     try {
-      const [unreadCount, created] = await UserUnreadCount.findOrCreate({
-        where: {
-          userId,
-          chatId,
-          isGroup
-        },
-        defaults: {
-          userId,
-          chatId,
-          isGroup,
-          unreadCount: 1,
-          lastMessageId: messageId
-        }
-      });
-
-      if (!created) {
-        // Increment existing count
-        await unreadCount.increment('unreadCount');
-        if (messageId) {
-          unreadCount.lastMessageId = messageId;
-          await unreadCount.save();
-        }
+      const unreadCount = await UserUnreadCount.findOne({ userId, chatId, isGroup });
+      if (unreadCount) {
+        unreadCount.unreadCount += 1;
+        if (messageId) unreadCount.lastMessageId = messageId as any;
+        await unreadCount.save();
+      } else {
+        await UserUnreadCount.create({ userId, chatId, isGroup, unreadCount: 1, lastMessageId: messageId as any });
       }
 
       // Emit real-time update to user's personal room
@@ -41,7 +26,8 @@ class UnreadCountService {
         lastMessageId: messageId
       });
 
-      return unreadCount.unreadCount + (created ? 0 : 1);
+      const latest = await UserUnreadCount.findOne({ userId, chatId, isGroup });
+      return latest?.unreadCount || 0;
     } catch (error) {
       console.error('Error incrementing unread count:', error);
       throw error;
@@ -53,16 +39,7 @@ class UnreadCountService {
    */
   async resetUnreadCount(userId: number, chatId: number, isGroup: boolean): Promise<void> {
     try {
-      await UserUnreadCount.update(
-        { unreadCount: 0 },
-        {
-          where: {
-            userId,
-            chatId,
-            isGroup
-          }
-        }
-      );
+      await UserUnreadCount.updateOne({ userId, chatId, isGroup }, { $set: { unreadCount: 0 } });
 
       // Emit real-time update to user's personal room
       websocketService.emitToUser(userId, 'unread-count-update', {
@@ -81,14 +58,7 @@ class UnreadCountService {
    */
   async getUnreadCount(userId: number, chatId: number, isGroup: boolean): Promise<number> {
     try {
-      const unreadCount = await UserUnreadCount.findOne({
-        where: {
-          userId,
-          chatId,
-          isGroup
-        }
-      });
-
+      const unreadCount = await UserUnreadCount.findOne({ userId, chatId, isGroup });
       return unreadCount?.unreadCount || 0;
     } catch (error) {
       console.error('Error getting unread count:', error);
@@ -101,19 +71,8 @@ class UnreadCountService {
    */
   async getAllUnreadCounts(userId: number): Promise<Array<{ chatId: number; isGroup: boolean; unreadCount: number }>> {
     try {
-      const unreadCounts = await UserUnreadCount.findAll({
-        where: {
-          userId,
-          unreadCount: { [Op.gt]: 0 }
-        },
-        attributes: ['chatId', 'isGroup', 'unreadCount']
-      });
-
-      return unreadCounts.map(uc => ({
-        chatId: uc.chatId,
-        isGroup: uc.isGroup,
-        unreadCount: uc.unreadCount
-      }));
+      const unreadCounts = await UserUnreadCount.find({ userId, unreadCount: { $gt: 0 } }).select('chatId isGroup unreadCount');
+      return unreadCounts.map(uc => ({ chatId: uc.chatId as any, isGroup: uc.isGroup as any, unreadCount: uc.unreadCount as any }));
     } catch (error) {
       console.error('Error getting all unread counts:', error);
       return [];
@@ -126,12 +85,7 @@ class UnreadCountService {
   async updateGroupUnreadCounts(groupId: number, senderId: number, messageId: number | string): Promise<void> {
     try {
       // Get all group members except the sender
-      const groupMembers = await GroupMember.findAll({
-        where: {
-          groupId,
-          userId: { [Op.ne]: senderId }
-        }
-      });
+      const groupMembers = await GroupMember.find({ groupId, userId: { $ne: senderId } });
 
       // Update unread count for each member
       for (const member of groupMembers) {

@@ -9,7 +9,7 @@ import AdjectiveSelection from '../models/adjectiveSelection.model';
 import AdjectiveSession from '../models/adjectiveSession.model';
 import Match from '../models/match.model';
 import Interaction from '../models/interaction.model';
-import { Op } from 'sequelize';
+// Removed Sequelize Op import - using Mongoose queries instead
 
 // Gender-based adjective pools
 const MALE_ADJECTIVES = [
@@ -58,11 +58,9 @@ const generateRandomAdjectives = (allowedAdjectives: string[], count: number = 4
 
 const cleanupExpiredSessions = async (): Promise<void> => {
   try {
-    await AdjectiveSession.destroy({
-      where: {
-        expiresAt: {
-          [Op.lt]: new Date()
-        }
+    await AdjectiveSession.deleteMany({
+      expiresAt: {
+        $lt: new Date()
       }
     });
   } catch (error) {
@@ -112,9 +110,7 @@ const getUserGender = async (req: Request, res: Response): Promise<void> => {
   try {
     const currentUserId = (req as any).user.id;
     
-    const user = await User.findByPk(currentUserId, {
-      attributes: ['gender']
-    });
+    const user = await User.findById(currentUserId).select('gender');
 
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
@@ -143,14 +139,12 @@ const getAdjectiveSelections = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const selections = await AdjectiveSelection.findAll({
-      where: {
-        userId: currentUserId,
-        targetUserId: parseInt(targetUserId)
-      },
-      attributes: ['id', 'userId', 'targetUserId', 'adjective', 'timestamp', 'isMatched'],
-      order: [['timestamp', 'DESC']]
-    });
+    const selections = await AdjectiveSelection.find({
+      userId: currentUserId,
+      targetUserId: parseInt(targetUserId)
+    })
+    .select('id userId targetUserId adjective timestamp isMatched')
+    .sort({ timestamp: -1 });
 
     res.json({
       success: true,
@@ -183,8 +177,8 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
 
     // Get current user and target user for gender validation
     const [currentUser, targetUser] = await Promise.all([
-      User.findByPk(currentUserId, { attributes: ['gender'] }),
-      User.findByPk(targetUserId, { attributes: ['gender'] })
+      User.findById(currentUserId).select('gender'),
+      User.findById(targetUserId).select('gender')
     ]);
 
     if (!currentUser || !targetUser) {
@@ -205,10 +199,8 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
 
     // Check if user has already selected an adjective for this target
     const existingSelection = await AdjectiveSelection.findOne({
-      where: {
-        userId: currentUserId,
-        targetUserId: parseInt(targetUserId)
-      }
+      userId: currentUserId,
+      targetUserId: parseInt(targetUserId)
     });
 
     let selection;
@@ -216,11 +208,10 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
 
     if (existingSelection) {
       // Update existing selection
-      await existingSelection.update({
-        adjective,
-        timestamp: new Date(),
-        isMatched: false // Reset match status since adjective changed
-      });
+      existingSelection.adjective = adjective;
+      existingSelection.timestamp = new Date();
+      existingSelection.isMatched = false; // Reset match status since adjective changed
+      await existingSelection.save();
       selection = existingSelection;
       isUpdate = true;
     } else {
@@ -236,11 +227,9 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
 
     // Check for mutual match
     const mutualSelection = await AdjectiveSelection.findOne({
-      where: {
-        userId: parseInt(targetUserId),
-        targetUserId: currentUserId,
-        adjective
-      }
+      userId: parseInt(targetUserId),
+      targetUserId: currentUserId,
+      adjective
     });
 
     let matched = false;
@@ -249,8 +238,8 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
     if (mutualSelection) {
       // Create match
       const match = await Match.create({
-        userId1: Math.min(currentUserId, parseInt(targetUserId)),
-        userId2: Math.max(currentUserId, parseInt(targetUserId)),
+        user1Id: Math.min(currentUserId, parseInt(targetUserId)),
+        user2Id: Math.max(currentUserId, parseInt(targetUserId)),
         mutualAdjective: adjective,
         isConnected: false,
         matchTimestamp: new Date(),
@@ -258,14 +247,16 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
       });
 
       // Update both selections as matched
-      await selection.update({ isMatched: true });
-      await mutualSelection.update({ isMatched: true });
+      selection.isMatched = true;
+      await selection.save();
+      mutualSelection.isMatched = true;
+      await mutualSelection.save();
 
       matched = true;
       matchData = {
-        id: match.id,
-        userId1: match.userId1,
-        userId2: match.userId2,
+        id: match._id,
+        user1Id: match.user1Id,
+        user2Id: match.user2Id,
         mutualAdjective: match.mutualAdjective,
         matchTimestamp: match.matchTimestamp
       };
@@ -297,12 +288,10 @@ const getMatchState = async (req: Request, res: Response): Promise<void> => {
     }
 
     const match = await Match.findOne({
-      where: {
-        [Op.or]: [
-          { userId1: currentUserId, userId2: parseInt(targetUserId) },
-          { userId1: parseInt(targetUserId), userId2: currentUserId }
-        ]
-      }
+      $or: [
+        { user1Id: currentUserId, user2Id: parseInt(targetUserId) },
+        { user1Id: parseInt(targetUserId), user2Id: currentUserId }
+      ]
     });
 
     if (!match) {
@@ -316,21 +305,19 @@ const getMatchState = async (req: Request, res: Response): Promise<void> => {
 
     // Check actual connection status from Connection table
     const connection = await Connection.findOne({
-      where: {
-        [Op.or]: [
-          { userId1: currentUserId, userId2: parseInt(targetUserId) },
-          { userId1: parseInt(targetUserId), userId2: currentUserId }
-        ],
-        status: 'connected'
-      }
+      $or: [
+        { user1Id: currentUserId, user2Id: parseInt(targetUserId) },
+        { user1Id: parseInt(targetUserId), user2Id: currentUserId }
+      ],
+      status: 'connected'
     });
 
     res.json({
       success: true,
       matchState: {
-        id: match.id,
-        userId1: match.userId1,
-        userId2: match.userId2,
+        id: match._id,
+        user1Id: match.user1Id,
+        user2Id: match.user2Id,
         mutualAdjective: match.mutualAdjective,
         isConnected: !!connection, // Use actual connection status
         matchTimestamp: match.matchTimestamp,
@@ -358,12 +345,10 @@ const connectAfterMatch = async (req: Request, res: Response): Promise<void> => 
 
     // Find the match
     const match = await Match.findOne({
-      where: {
-        [Op.or]: [
-          { userId1: currentUserId, userId2: parseInt(targetUserId) },
-          { userId1: parseInt(targetUserId), userId2: currentUserId }
-        ]
-      }
+      $or: [
+        { user1Id: currentUserId, user2Id: parseInt(targetUserId) },
+        { user1Id: parseInt(targetUserId), user2Id: currentUserId }
+      ]
     });
 
     if (!match) {
@@ -377,36 +362,35 @@ const connectAfterMatch = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Update match as connected
-    await match.update({
-      isConnected: true,
-      connectionTimestamp: new Date()
-    });
+    match.isConnected = true;
+    match.connectionTimestamp = new Date();
+    await match.save();
 
     // Create or update connection
-    const [connection, created] = await Connection.findOrCreate({
-      where: {
-        [Op.or]: [
-          { userId1: currentUserId, userId2: parseInt(targetUserId) },
-          { userId1: parseInt(targetUserId), userId2: currentUserId }
-        ]
-      },
-      defaults: {
-        userId1: Math.min(currentUserId, parseInt(targetUserId)),
-        userId2: Math.max(currentUserId, parseInt(targetUserId)),
-        status: 'connected'
-      }
+    let connection = await Connection.findOne({
+      $or: [
+        { user1Id: currentUserId, user2Id: parseInt(targetUserId) },
+        { user1Id: parseInt(targetUserId), user2Id: currentUserId }
+      ]
     });
 
-    if (!created) {
-      await connection.update({ status: 'connected' });
+    if (!connection) {
+      connection = await Connection.create({
+        user1Id: Math.min(currentUserId, parseInt(targetUserId)),
+        user2Id: Math.max(currentUserId, parseInt(targetUserId)),
+        status: 'connected'
+      });
+    } else {
+      connection.status = 'connected';
+      await connection.save();
     }
 
     res.json({
       success: true,
       connectionState: {
-        id: connection.id,
-        userId1: connection.userId1,
-        userId2: connection.userId2,
+        id: connection._id,
+        user1Id: connection.user1Id,
+        user2Id: connection.user2Id,
         status: connection.status,
         createdAt: connection.createdAt,
         updatedAt: connection.updatedAt
@@ -431,12 +415,10 @@ const getIceBreakingPrompt = async (req: Request, res: Response): Promise<void> 
     }
 
     const match = await Match.findOne({
-      where: {
-        [Op.or]: [
-          { userId1: currentUserId, userId2: parseInt(targetUserId) },
-          { userId1: parseInt(targetUserId), userId2: currentUserId }
-        ]
-      }
+      $or: [
+        { user1Id: currentUserId, user2Id: parseInt(targetUserId) },
+        { user1Id: parseInt(targetUserId), user2Id: currentUserId }
+      ]
     });
 
     if (!match) {
@@ -474,8 +456,8 @@ const getAvailableAdjectives = async (req: Request, res: Response): Promise<void
 
     // Get current user and target user for gender validation
     const [currentUser, targetUser] = await Promise.all([
-      User.findByPk(currentUserId, { attributes: ['gender'] }),
-      User.findByPk(targetUserId, { attributes: ['gender'] })
+      User.findById(currentUserId).select('gender'),
+      User.findById(targetUserId).select('gender')
     ]);
 
     if (!currentUser || !targetUser) {
@@ -491,18 +473,14 @@ const getAvailableAdjectives = async (req: Request, res: Response): Promise<void
 
     // Check if target user has already selected an adjective for current user
     const targetUserSelection = await AdjectiveSelection.findOne({
-      where: {
-        userId: parseInt(targetUserId),
-        targetUserId: currentUserId
-      }
+      userId: parseInt(targetUserId),
+      targetUserId: currentUserId
     });
 
     // Check if current user has already selected an adjective for target user
     const currentUserSelection = await AdjectiveSelection.findOne({
-      where: {
-        userId: currentUserId,
-        targetUserId: parseInt(targetUserId)
-      }
+      userId: currentUserId,
+      targetUserId: parseInt(targetUserId)
     });
 
     let adjectives: string[] = [];
@@ -512,13 +490,11 @@ const getAvailableAdjectives = async (req: Request, res: Response): Promise<void
     let session = null;
     if (sessionId) {
       session = await AdjectiveSession.findOne({
-        where: {
-          userId: currentUserId,
-          targetUserId: parseInt(targetUserId),
-          sessionId: sessionId as string,
-          expiresAt: {
-            [Op.gt]: new Date()
-          }
+        userId: currentUserId,
+        targetUserId: parseInt(targetUserId),
+        sessionId: sessionId as string,
+        expiresAt: {
+          $gt: new Date()
         }
       });
     }

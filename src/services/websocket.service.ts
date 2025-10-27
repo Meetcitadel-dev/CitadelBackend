@@ -1,7 +1,7 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import * as jwt from 'jsonwebtoken';
-import { Op } from 'sequelize';
+// Removed Sequelize Op; using Mongoose filtering instead
 import UserOnlineStatus from '../models/userOnlineStatus.model';
 import Message from '../models/message.model';
 import Conversation from '../models/conversation.model';
@@ -158,16 +158,13 @@ class WebSocketService {
 
   private async updateUserOnlineStatus(userId: number, isOnline: boolean) {
     try {
-      const [status, created] = await UserOnlineStatus.findOrCreate({
-        where: { userId },
-        defaults: { userId, isOnline, lastSeen: new Date() }
-      });
-
-      if (!created) {
-        await status.update({ 
-          isOnline, 
-          lastSeen: isOnline ? new Date() : status.lastSeen 
-        });
+      const existing = await UserOnlineStatus.findOne({ userId });
+      if (existing) {
+        existing.isOnline = isOnline;
+        if (isOnline) existing.lastSeen = new Date();
+        await existing.save();
+      } else {
+        await UserOnlineStatus.create({ userId, isOnline, lastSeen: new Date() });
       }
 
       // Broadcast online status to connected users
@@ -186,13 +183,8 @@ class WebSocketService {
 
       // Verify user has access to this conversation
       const conversation = await Conversation.findOne({
-        where: {
-          id: conversationId,
-          [Op.or]: [
-            { user1Id: senderId },
-            { user2Id: senderId }
-          ]
-        }
+        _id: conversationId,
+        $or: [{ user1Id: senderId }, { user2Id: senderId }]
       });
 
       console.log(`🔍 WebSocket - Conversation lookup result:`, conversation ? 'Found' : 'Not found');
@@ -243,13 +235,8 @@ class WebSocketService {
 
     // Get the other user in the conversation
     Conversation.findOne({
-      where: {
-        id: conversationId,
-        [Op.or]: [
-          { user1Id: senderId },
-          { user2Id: senderId }
-        ]
-      }
+      _id: conversationId,
+      $or: [{ user1Id: senderId }, { user2Id: senderId }]
     }).then(conversation => {
       if (conversation) {
         const otherUserId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
@@ -271,13 +258,8 @@ class WebSocketService {
 
     // Get the other user in the conversation
     Conversation.findOne({
-      where: {
-        id: conversationId,
-        [Op.or]: [
-          { user1Id: senderId },
-          { user2Id: senderId }
-        ]
-      }
+      _id: conversationId,
+      $or: [{ user1Id: senderId }, { user2Id: senderId }]
     }).then(conversation => {
       if (conversation) {
         const otherUserId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
@@ -300,13 +282,8 @@ class WebSocketService {
 
       // Verify user has access to this conversation
       const conversation = await Conversation.findOne({
-        where: {
-          id: conversationId,
-          [Op.or]: [
-            { user1Id: userId },
-            { user2Id: userId }
-          ]
-        }
+        _id: conversationId,
+        $or: [{ user1Id: userId }, { user2Id: userId }]
       });
 
       if (!conversation) {
@@ -317,15 +294,9 @@ class WebSocketService {
       // Mark messages as read
       const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
       
-      await Message.update(
-        { status: 'read' },
-        {
-          where: {
-            conversationId,
-            senderId: otherUserId,
-            status: { [Op.ne]: 'read' }
-          }
-        }
+      await Message.updateMany(
+        { conversationId, senderId: otherUserId, status: { $ne: 'read' } },
+        { $set: { status: 'read' } }
       );
 
       // Notify sender that messages were read

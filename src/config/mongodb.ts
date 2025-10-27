@@ -1,19 +1,20 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const connectMongoDB = async (): Promise<void> => {
-  try {
-    const mongoUri = process.env.MONGODB_URI;
-    
-    if (!mongoUri) {
-      throw new Error('MONGODB_URI environment variable is not defined');
-    }
-    
-    await mongoose.connect(mongoUri);
-    console.log('✅ MongoDB connected successfully (Atlas)');
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    console.log('💡 Check your MONGODB_URI in .env file or install MongoDB locally');
+  const mongoUri = process.env.MONGODB_URI;
+  
+  if (!mongoUri) {
+    throw new Error('MONGODB_URI environment variable is not defined');
   }
+  
+  return mongoose.connect(mongoUri)
+    .then(() => console.log('✅ MongoDB connected'))
+    .catch(err => {
+      console.error('❌ MongoDB connection failed:', err);
+      throw err;
+    });
 };
 
 export default connectMongoDB; 

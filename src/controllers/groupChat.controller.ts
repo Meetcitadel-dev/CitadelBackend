@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Op, Transaction } from 'sequelize';
+// Removed Sequelize imports - using Mongoose instead
 import User from '../models/user.model';
 import Connection from '../models/connection.model';
 import Group from '../models/group.model';
@@ -7,7 +7,7 @@ import GroupMember from '../models/groupMember.model';
 import GroupMessage from '../models/groupMessage.model';
 import GroupMessageRead from '../models/groupMessageRead.model';
 import UserImage from '../models/userImage.model';
-import sequelize from '../config/db';
+// Removed Sequelize db import - using MongoDB with Mongoose
 import websocketService from '../services/websocket.service';
 import unreadCountService from '../services/unreadCount.service';
 

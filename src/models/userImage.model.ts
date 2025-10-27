@@ -1,78 +1,35 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import sequelize from '../config/db';
-import User from './user.model';
+import mongoose, { Schema, Document } from 'mongoose';
 
-export interface UserImageAttributes {
-  id: number;
-  userId: number;
-  s3Key: string;
-  cloudfrontUrl: string;
-  originalName: string;
-  mimeType: string;
-  fileSize: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+export interface IUserImage extends Document {
+  userId: string;
+  imageUrl: string;
+  cloudfrontUrl?: string;
+  slot?: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface UserImageCreationAttributes extends Optional<UserImageAttributes, 'id'> {}
-
-class UserImage extends Model<UserImageAttributes, UserImageCreationAttributes> implements UserImageAttributes {
-  public id!: number;
-  public userId!: number;
-  public s3Key!: string;
-  public cloudfrontUrl!: string;
-  public originalName!: string;
-  public mimeType!: string;
-  public fileSize!: number;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-UserImage.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    userId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
-    },
-    s3Key: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    cloudfrontUrl: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
-    originalName: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    mimeType: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    fileSize: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
+const UserImageSchema = new Schema<IUserImage>({
+  userId: {
+    type: String,
+    required: true,
+    ref: 'User',
+    index: true
   },
-  {
-    sequelize,
-    modelName: 'UserImage',
-    tableName: 'user_images',
-    timestamps: true,
+  imageUrl: {
+    type: String,
+    required: true
+  },
+  cloudfrontUrl: String,
+  slot: {
+    type: Number,
+    default: 0
   }
-);
+}, {
+  timestamps: true,
+  collection: 'user_images'
+});
 
-// Define association (only one side to avoid circular dependency)
-UserImage.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+const UserImage = mongoose.model<IUserImage>('UserImage', UserImageSchema);
 
-export default UserImage; 
+export default UserImage;

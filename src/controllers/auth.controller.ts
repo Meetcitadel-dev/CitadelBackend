@@ -17,7 +17,7 @@ export const checkUserExistsController = async (req: Request, res: Response) => 
   }
 
   // Validate university email format
-  const universities = await University.findAll();
+  const universities = await University.find();
   const allowedDomains = universities.map(u => u.domain);
   if (!isValidUniversityEmail(email, allowedDomains)) {
     return res.status(400).json({ 
@@ -27,8 +27,8 @@ export const checkUserExistsController = async (req: Request, res: Response) => 
   }
 
   try {
-    // Check if user exists
-    const user = await User.findOne({ where: { email } });
+  // Check if user exists
+  const user = await User.findOne({ email });
     
     if (!user) {
       return res.status(404).json({ 
@@ -68,7 +68,7 @@ export const sendOtpController = async (req: Request, res: Response) => {
   if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
   // Get allowed university domains
-  const universities = await University.findAll();
+  const universities = await University.find();
   const allowedDomains = universities.map(u => u.domain);
   if (!isValidUniversityEmail(email, allowedDomains)) {
     return res.status(400).json({ success: false, message: 'Invalid university email domain' });
@@ -77,7 +77,7 @@ export const sendOtpController = async (req: Request, res: Response) => {
   try {
     // For login flow, check if user exists first
     if (isLogin) {
-      const existingUser = await User.findOne({ where: { email } });
+      const existingUser = await User.findOne({ email });
       if (!existingUser) {
         return res.status(404).json({ 
           success: false, 
@@ -98,7 +98,7 @@ export const sendOtpController = async (req: Request, res: Response) => {
     
     // Only upsert user for signup flow, not for login
     if (!isLogin) {
-      await User.upsert({ email });
+      await User.findOneAndUpdate({ email }, { email }, { upsert: true, new: true });
     }
     
     return res.json({ success: true, message: 'OTP sent successfully', expiresIn });
@@ -114,7 +114,7 @@ export const verifyOtpController = async (req: Request, res: Response) => {
   const { email, otp, isLogin = false, rememberDevice = false } = req.body;
   if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required' });
 
-  const user = await User.findOne({ where: { email } });
+  const user = await User.findOne({ email });
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
   const valid = await verifyOtp(email, otp);
@@ -216,7 +216,7 @@ export const refreshTokenController = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Invalid refresh token' });
     }
 
-    const user = await User.findByPk(decoded.sub);
+    const user = await User.findById(decoded.sub);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }

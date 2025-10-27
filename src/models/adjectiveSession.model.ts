@@ -1,94 +1,43 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import sequelize from '../config/db';
+import mongoose, { Schema, Document } from 'mongoose';
 
-export interface AdjectiveSessionAttributes {
-  id: string;
-  userId: number;
-  targetUserId: number;
+export interface IAdjectiveSession extends Document {
+  userId: string;
+  targetUserId: string;
   sessionId: string;
-  adjectives: string[]; // Array of 4 adjectives
-  createdAt: Date;
+  adjectives: string[];
   expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface AdjectiveSessionCreationAttributes extends Optional<AdjectiveSessionAttributes, 'id' | 'createdAt' | 'expiresAt'> {}
-
-class AdjectiveSession extends Model<AdjectiveSessionAttributes, AdjectiveSessionCreationAttributes> implements AdjectiveSessionAttributes {
-  public id!: string;
-  public userId!: number;
-  public targetUserId!: number;
-  public sessionId!: string;
-  public adjectives!: string[];
-  public readonly createdAt!: Date;
-  public readonly expiresAt!: Date;
-}
-
-AdjectiveSession.init(
-  {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    userId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
-    },
-    targetUserId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
-    },
-    sessionId: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-    adjectives: {
-      type: DataTypes.JSONB,
-      allowNull: false,
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    expiresAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
+const AdjectiveSessionSchema = new Schema<IAdjectiveSession>({
+  userId: {
+    type: String,
+    required: true,
+    ref: 'User'
   },
-  {
-    sequelize,
-    modelName: 'AdjectiveSession',
-    tableName: 'adjective_sessions',
-    timestamps: false,
-    indexes: [
-      {
-        unique: true,
-        fields: ['userId', 'targetUserId', 'sessionId'],
-      },
-      {
-        fields: ['userId'],
-      },
-      {
-        fields: ['targetUserId'],
-      },
-      {
-        fields: ['sessionId'],
-      },
-      {
-        fields: ['expiresAt'],
-      },
-    ],
+  targetUserId: {
+    type: String,
+    required: true,
+    ref: 'User'
+  },
+  sessionId: {
+    type: String,
+    required: true
+  },
+  adjectives: [{
+    type: String,
+    required: true
+  }],
+  expiresAt: {
+    type: Date,
+    required: true
   }
-);
+}, {
+  timestamps: true,
+  collection: 'adjective_sessions'
+});
+
+const AdjectiveSession = mongoose.model<IAdjectiveSession>('AdjectiveSession', AdjectiveSessionSchema);
 
 export default AdjectiveSession;

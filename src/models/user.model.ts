@@ -1,14 +1,12 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import sequelize from '../config/db';
+import mongoose, { Schema, Document } from 'mongoose';
 
-export interface UserAttributes {
-  id: number;
+export interface IUser extends Document {
   email: string;
   isEmailVerified: boolean;
   otpAttempts: number;
   name?: string;
   username?: string;
-  universityId?: number;
+  universityId?: string;
   degree?: string;
   year?: string;
   gender?: string;
@@ -23,161 +21,79 @@ export interface UserAttributes {
   portfolioLink?: string;
   phoneNumber?: string;
   isProfileComplete: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
+  hasCompletedQuiz: boolean;
+  quizScore: number;
+  quizCompletedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'isEmailVerified' | 'otpAttempts' | 'isProfileComplete'> {}
-
-class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
-  public id!: number;
-  public email!: string;
-  public isEmailVerified!: boolean;
-  public otpAttempts!: number;
-  public name?: string;
-  public username?: string;
-  public universityId?: number;
-  public degree?: string;
-  public year?: string;
-  public gender?: string;
-  public dateOfBirth?: Date;
-  public skills?: string[];
-  public friends?: string[];
-  public aboutMe?: string;
-  public sports?: string;
-  public movies?: string;
-  public tvShows?: string;
-  public teams?: string;
-  public portfolioLink?: string;
-  public phoneNumber?: string;
-  public isProfileComplete!: boolean;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-User.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-    },
-    isEmailVerified: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false,
-    },
-    otpAttempts: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
-    name: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    username: {
-      type: DataTypes.STRING(50),
-      allowNull: true,
-      unique: true,
-    },
-    universityId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-    degree: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    year: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    gender: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    dateOfBirth: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
-    skills: {
-      type: DataTypes.JSON,
-      allowNull: true,
-    },
-    friends: {
-      type: DataTypes.JSON,
-      allowNull: true,
-    },
-    aboutMe: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      field: 'about_me',
-    },
-    sports: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-      field: 'sports',
-    },
-    movies: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-      field: 'movies',
-    },
-    tvShows: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-      field: 'tv_shows',
-    },
-    teams: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-      field: 'teams',
-    },
-    portfolioLink: {
-      type: DataTypes.STRING(500),
-      allowNull: true,
-      field: 'portfolio_link',
-    },
-    phoneNumber: {
-      type: DataTypes.STRING(20),
-      allowNull: true,
-      field: 'phone_number',
-    },
-    isProfileComplete: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false,
-    },
+const UserSchema = new Schema<IUser>({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true
   },
-  {
-    sequelize,
-    modelName: 'User',
-    tableName: 'users',
-    timestamps: true,
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  otpAttempts: {
+    type: Number,
+    default: 0
+  },
+  name: {
+    type: String
+  },
+  username: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  universityId: {
+    type: String,
+    ref: 'University'
+  },
+  degree: String,
+  year: String,
+  gender: String,
+  dateOfBirth: Date,
+  skills: [String],
+  friends: [String],
+  aboutMe: String,
+  sports: String,
+  movies: String,
+  tvShows: String,
+  teams: String,
+  portfolioLink: String,
+  phoneNumber: String,
+  isProfileComplete: {
+    type: Boolean,
+    default: false
+  },
+  hasCompletedQuiz: {
+    type: Boolean,
+    default: false
+  },
+  quizScore: {
+    type: Number,
+    default: 0
+  },
+  quizCompletedAt: {
+    type: Date
   }
-);
+}, {
+  timestamps: true,
+  collection: 'users'
+});
 
-// Associations will be set up in associations.ts
+// Create indexes
+UserSchema.index({ email: 1 });
+UserSchema.index({ username: 1 });
+UserSchema.index({ universityId: 1 });
+UserSchema.index({ name: 1 });
+
+const User = mongoose.model<IUser>('User', UserSchema);
 
 export default User;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

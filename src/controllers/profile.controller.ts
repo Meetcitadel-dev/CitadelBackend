@@ -3,7 +3,6 @@ import User from '../models/user.model';
 import UserImage from '../models/userImage.model';
 import University from '../models/university.model';
 import UserImageSlot from '../models/userImageSlot.model';
-import sequelize from '../config/db';
 import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import Conversation from '../models/conversation.model';
@@ -14,7 +13,6 @@ import NotificationReadStatus from '../models/notificationReadStatus.model';
 import UserOnlineStatus from '../models/userOnlineStatus.model';
 import { uploadImage, generateS3Key, generateCloudFrontSignedUrl, generateS3SignedUrl, deleteImage } from '../services/s3.service';
 import { utUploadImageFromBuffer, utDeleteImageByKey } from '../services/uploadthing.service';
-import { Op } from 'sequelize';
 
 export const uploadUserImage = async (req: Request, res: Response) => {
   try {
@@ -28,7 +26,7 @@ export const uploadUserImage = async (req: Request, res: Response) => {
     }
 
     // Check if user exists
-    const user = await User.findByPk(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -98,10 +96,7 @@ export const getUserImages = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const images = await UserImage.findAll({
-      where: { userId },
-      order: [['createdAt', 'DESC']],
-    });
+    const images = await UserImage.find({ userId }).sort({ createdAt: -1 });
 
     const useUT = process.env.USE_UPLOADTHING === 'true';
 
@@ -167,22 +162,20 @@ export const assignImageToSlot = async (req: Request, res: Response) => {
     }
 
     // Verify image belongs to user
-    const image = await UserImage.findOne({ where: { id: userImageId, userId } });
+    const image = await UserImage.findOne({ _id: userImageId, userId });
     if (!image) {
       return res.status(404).json({ error: 'Image not found for this user' });
     }
 
-    await sequelize.transaction(async (t) => {
-      // Upsert mapping for (userId, slot)
-      const existing = await UserImageSlot.findOne({ where: { userId, slot }, transaction: t, lock: t.LOCK.UPDATE });
-      if (existing) {
-        existing.userImageId = image.id;
-        existing.assignedAt = new Date();
-        await existing.save({ transaction: t });
-      } else {
-        await UserImageSlot.create({ userId, slot, userImageId: image.id }, { transaction: t });
-      }
-    });
+    // Upsert mapping for (userId, slot)
+    const existing = await UserImageSlot.findOne({ userId, slot });
+    if (existing) {
+      existing.userImageId = image._id.toString();
+      existing.assignedAt = new Date();
+      await existing.save();
+    } else {
+      await UserImageSlot.create({ userId, slot, userImageId: image._id.toString() });
+    }
 
     return res.json({ message: 'Slot assigned successfully' });
   } catch (error) {
@@ -204,8 +197,8 @@ export const clearImageSlot = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'slot must be an integer between 0 and 4' });
     }
 
-    const deleted = await UserImageSlot.destroy({ where: { userId, slot } });
-    if (deleted === 0) {
+    const result = await UserImageSlot.deleteOne({ userId, slot });
+    if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Slot not set' });
     }
 
@@ -227,7 +220,7 @@ export const deleteUserImage = async (req: Request, res: Response) => {
 
     // Find the image and ensure it belongs to the user
     const userImage = await UserImage.findOne({
-      where: { id: imageId, userId },
+      _id: imageId, userId,
     });
 
     if (!userImage) {
@@ -243,7 +236,7 @@ export const deleteUserImage = async (req: Request, res: Response) => {
     }
 
     // Delete from database
-    await userImage.destroy();
+    await UserImage.findByIdAndDelete(userImage._id);
 
     res.json({
       message: 'Image deleted successfully',
@@ -265,7 +258,7 @@ export const getSignedUrl = async (req: Request, res: Response) => {
 
     // Find the image and ensure it belongs to the user
     const userImage = await UserImage.findOne({
-      where: { id: imageId, userId },
+      _id: imageId, userId,
     });
 
     if (!userImage) {
@@ -307,7 +300,7 @@ export const getMyProfile = async (req: Request, res: Response) => {
     }
 
     // Fetch user
-    const user = await User.findByPk(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -520,7 +513,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     }
 
     // Find the user
-    const user = await User.findByPk(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ 
         success: false, 
@@ -723,7 +716,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
     }
 
     // Find the user
-    const user = await User.findByPk(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ 
         success: false, 
