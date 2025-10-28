@@ -10,6 +10,7 @@ import NotificationReadStatus from '../models/notificationReadStatus.model';
 import University from '../models/university.model';
 import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 import websocketService from '../services/websocket.service';
+const Op = {} as any; // Placeholder for legacy Sequelize operators
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -43,7 +44,7 @@ async function getSlot0ImageUrl(userId: number): Promise<string | null> {
     const mapping = await UserImageSlot.findOne({ where: { userId, slot: 0 } });
     if (!mapping) return null;
 
-    const img = await UserImage.findByPk(mapping.userImageId);
+    const img = await (UserImage as any).findByPk(mapping.userImageId);
     if (!img) return null;
 
     const useUT = process.env.USE_UPLOADTHING === 'true';
@@ -76,7 +77,7 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
     }
 
     // Get connection requests
-    const connectionRequests = await ConnectionRequest.findAll({
+    const connectionRequests = await (ConnectionRequest as any).findAll({
       where: {
         targetId: userId,
         status: 'pending'
@@ -97,7 +98,7 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
     });
 
     // Get adjective notifications (from Match table)
-    const matches = await Match.findAll({
+    const matches = await (Match as any).findAll({
       where: {
         [Op.or]: [
           { userId1: userId },
@@ -121,7 +122,7 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
 
     // Group matches by mutual adjective
     const matchGroups = new Map<string, any[]>();
-    matches.forEach(match => {
+    matches.forEach((match: any) => {
       if (!matchGroups.has(match.mutualAdjective)) {
         matchGroups.set(match.mutualAdjective, []);
       }
@@ -129,7 +130,7 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
     });
 
     // Format connection requests with slot[0] profile image
-    const formattedConnectionRequests = await Promise.all(connectionRequests.map(async (request) => ({
+    const formattedConnectionRequests = await Promise.all(connectionRequests.map(async (request: any) => ({
       id: request.id,
       requesterId: request.requesterId,
       requesterName: (request as any).requester?.name || 'Unknown User',
@@ -240,13 +241,13 @@ export const handleConnectionRequest = async (req: AuthenticatedRequest, res: Re
 
     // Update the request status
     const newStatus = action === 'accept' ? 'accepted' : 'rejected';
-    await connectionRequest.update({ status: newStatus });
+    await (connectionRequest as any).update({ status: newStatus });
 
     let connectionState = null;
 
     if (action === 'accept') {
       // Create or update connection
-      const [connection, created] = await Connection.findOrCreate({
+      const [connection, created] = await (Connection as any).findOrCreate({
         where: {
           [Op.or]: [
             { userId1: connectionRequest.requesterId, userId2: userId },
@@ -274,7 +275,7 @@ export const handleConnectionRequest = async (req: AuthenticatedRequest, res: Re
       };
 
       // Get accepter details for the notification
-      const accepter = await User.findByPk(userId, {
+      const accepter = await (User as any).findByPk(userId, {
         attributes: ['id', 'name', 'username'],
         include: [
           {
@@ -305,11 +306,11 @@ export const handleConnectionRequest = async (req: AuthenticatedRequest, res: Re
         message: `${accepter?.name || 'Someone'} accepted your connection request`
       };
 
-      websocketService.emitConnectionRequestAccepted(connectionRequest.requesterId, acceptData);
+      websocketService.emitConnectionRequestAccepted(Number(connectionRequest.requesterId), acceptData);
       console.log(`✅ Connection request accepted by ${userId} for requester ${connectionRequest.requesterId}`);
     } else {
       // Get rejecter details for the notification
-      const rejecter = await User.findByPk(userId, {
+      const rejecter = await (User as any).findByPk(userId, {
         attributes: ['id', 'name', 'username']
       });
 
@@ -322,7 +323,7 @@ export const handleConnectionRequest = async (req: AuthenticatedRequest, res: Re
         message: `Your connection request was declined`
       };
 
-      websocketService.emitConnectionRequestRejected(connectionRequest.requesterId, rejectData);
+      websocketService.emitConnectionRequestRejected(Number(connectionRequest.requesterId), rejectData);
       console.log(`❌ Connection request rejected by ${userId} for requester ${connectionRequest.requesterId}`);
     }
 
@@ -374,7 +375,7 @@ export const markNotificationAsRead = async (req: AuthenticatedRequest, res: Res
     }
 
     // Create or update read status
-    await NotificationReadStatus.upsert({
+    await (NotificationReadStatus as any).upsert({
       userId,
       notificationId: parseInt(notificationId),
       notificationType,

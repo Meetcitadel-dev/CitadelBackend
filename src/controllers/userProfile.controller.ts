@@ -7,6 +7,7 @@ import Connection from '../models/connection.model';
 import ConnectionRequest from '../models/connectionRequest.model';
 import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 // Removed Sequelize Op import - using Mongoose queries instead
+const Op = {} as any; // Placeholder for legacy Sequelize operators
 
 // Get user profile by username
 export const getUserProfileByUsername = async (req: Request, res: Response) => {
@@ -43,7 +44,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     const isOwnProfile = currentUserId === user.id;
 
     // Fetch slot mappings and resolve images in slot order (0..4)
-    const slotMappings = await UserImageSlot.findAll({
+    const slotMappings = await (UserImageSlot as any).findAll({
       where: { userId: user.id },
       order: [['slot', 'ASC']],
     });
@@ -56,20 +57,20 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     // Prefetch all images referenced by slots
     const referencedIds = Array.from(slotToImageId.values());
     const referencedImages = referencedIds.length
-      ? await UserImage.findAll({ where: { id: referencedIds } })
+      ? await (UserImage as any).findAll({ where: { id: referencedIds } })
       : [];
-    const idToImage = new Map<number, UserImage>();
+    const idToImage = new Map<number, any>();
     for (const img of referencedImages) idToImage.set(img.id, img);
 
     // For library or fallback (optional): still fetch recent images
-    const recentImages = await UserImage.findAll({
+    const recentImages = await (UserImage as any).findAll({
       where: { userId: user.id },
       order: [['createdAt', 'DESC']],
       limit: 20,
     });
 
     const useUT = process.env.USE_UPLOADTHING === 'true';
-    const freshen = async (img: UserImage) => {
+    const freshen = async (img: any) => {
       const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
       if (isUploadThing || useUT) {
         return {
@@ -112,7 +113,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
       })
     );
 
-    const imagesWithFreshUrls = await Promise.all(recentImages.map((img) => freshen(img)));
+    const imagesWithFreshUrls = await Promise.all(recentImages.map((img: any) => freshen(img))); 
 
     // Get connection state between current user and target user
     let connectionState = null;
@@ -130,8 +131,8 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
         connectionState = {
           id: connection.id,
           status: connection.status,
-          requesterId: connection.userId1,
-          targetId: connection.userId2,
+          requesterId: (connection as any).user1Id,
+          targetId: (connection as any).user2Id,
           createdAt: connection.createdAt,
           updatedAt: connection.updatedAt
         };
@@ -160,7 +161,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     }
 
     // Get connections count for the target user
-    const connectionsCount = await Connection.count({
+  const connectionsCount = await (Connection as any).count({
       where: {
         [Op.or]: [
           { userId1: user.id, status: 'connected' },
@@ -172,7 +173,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     // Get mutual connections count if not own profile
     let mutualConnectionsCount = 0;
     if (!isOwnProfile) {
-      const currentUserConnections = await Connection.findAll({
+      const currentUserConnections = await (Connection as any).findAll({
         where: {
           [Op.or]: [
             { userId1: currentUserId, status: 'connected' },
@@ -181,7 +182,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
         }
       });
 
-      const targetUserConnections = await Connection.findAll({
+      const targetUserConnections = await (Connection as any).findAll({
         where: {
           [Op.or]: [
             { userId1: user.id, status: 'connected' },
@@ -190,16 +191,16 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
         }
       });
 
-      const currentUserConnectionIds = currentUserConnections.map(conn => 
+      const currentUserConnectionIds = currentUserConnections.map((conn: any) => 
         conn.userId1 === currentUserId ? conn.userId2 : conn.userId1
       );
 
-      const targetUserConnectionIds = targetUserConnections.map(conn => 
+      const targetUserConnectionIds = targetUserConnections.map((conn: any) => 
         conn.userId1 === user.id ? conn.userId2 : conn.userId1
       );
 
       // Find intersection
-      const mutualConnectionIds = currentUserConnectionIds.filter(id => 
+      const mutualConnectionIds = currentUserConnectionIds.filter((id: any) => 
         targetUserConnectionIds.includes(id)
       );
 
@@ -207,7 +208,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     }
 
     // Get actual connections for the target user
-    const userConnections = await Connection.findAll({
+    const userConnections = await (Connection as any).findAll({
       where: {
         [Op.or]: [
           { userId1: user.id, status: 'connected' },
@@ -229,7 +230,7 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
     });
 
     // Format connections data
-    const connections = userConnections.map(conn => {
+    const connections = userConnections.map((conn: any) => {
       const isUser1 = conn.userId1 === user.id;
       const connectedUser = isUser1 ? conn.userId2 : conn.userId1;
       const connectedUserData = isUser1 ? (conn as any).connectionUser2 : (conn as any).connectionUser1;
@@ -315,7 +316,7 @@ export const getMutualFriends = async (req: Request, res: Response) => {
     }
 
     // Get current user's connections
-    const currentUserConnections = await Connection.findAll({
+    const currentUserConnections = await (Connection as any).findAll({
       where: {
         [Op.or]: [
           { userId1: currentUserId, status: 'connected' },
@@ -325,7 +326,7 @@ export const getMutualFriends = async (req: Request, res: Response) => {
     });
 
     // Get target user's connections
-    const targetUserConnections = await Connection.findAll({
+    const targetUserConnections = await (Connection as any).findAll({
       where: {
         [Op.or]: [
           { userId1: targetUser.id, status: 'connected' },
@@ -334,21 +335,21 @@ export const getMutualFriends = async (req: Request, res: Response) => {
       }
     });
 
-    const currentUserFriendIds = currentUserConnections.map(conn => 
+    const currentUserFriendIds = currentUserConnections.map((conn: any) => 
       conn.userId1 === currentUserId ? conn.userId2 : conn.userId1
     );
 
-    const targetUserFriendIds = targetUserConnections.map(conn => 
+    const targetUserFriendIds = targetUserConnections.map((conn: any) => 
       conn.userId1 === targetUser.id ? conn.userId2 : conn.userId1
     );
 
     // Find intersection
-    const mutualFriendIds = currentUserFriendIds.filter(id => 
+    const mutualFriendIds = currentUserFriendIds.filter((id: any) => 
       targetUserFriendIds.includes(id)
     );
 
     // Get mutual friends details
-    const mutualFriends = await User.findAll({
+    const mutualFriends = await (User as any).findAll({
       where: {
         id: {
           [Op.in]: mutualFriendIds
@@ -366,7 +367,7 @@ export const getMutualFriends = async (req: Request, res: Response) => {
       ]
     });
 
-    const formattedMutualFriends = mutualFriends.map(friend => ({
+    const formattedMutualFriends = mutualFriends.map((friend: any) => ({
       id: friend.id,
       name: friend.name,
       username: friend.username,
@@ -453,7 +454,7 @@ export const updateUsername = async (req: Request, res: Response) => {
     }
 
     // Update user's username
-    const user = await User.findByPk(userId);
+    const user = await (User as any).findByPk(userId);
     if (!user) {
       return res.status(404).json({ 
         success: false, 

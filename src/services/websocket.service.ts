@@ -35,7 +35,7 @@ interface GroupTypingData {
 
 class WebSocketService {
   private io: SocketIOServer | null = null;
-  private userSockets: Map<number, string> = new Map(); // userId -> socketId
+  private userSockets: Map<string | number, string> = new Map(); // userId -> socketId
 
   initialize(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
@@ -208,7 +208,7 @@ class WebSocketService {
       });
 
       // Emit to recipient if online (without creating database record)
-      const recipientSocketId = this.userSockets.get(otherUserId);
+      const recipientSocketId = this.userSockets.get(otherUserId) || this.userSockets.get(otherUserId.toString());
       if (recipientSocketId) {
         this.io!.to(recipientSocketId).emit('new_message', {
           conversationId,
@@ -240,8 +240,8 @@ class WebSocketService {
     }).then(conversation => {
       if (conversation) {
         const otherUserId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
-        const recipientSocketId = this.userSockets.get(otherUserId);
-        
+        const recipientSocketId = this.userSockets.get(otherUserId) || this.userSockets.get(otherUserId.toString());
+
         if (recipientSocketId) {
           this.io!.to(recipientSocketId).emit('user_typing', {
             conversationId,
@@ -263,7 +263,7 @@ class WebSocketService {
     }).then(conversation => {
       if (conversation) {
         const otherUserId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
-        const recipientSocketId = this.userSockets.get(otherUserId);
+        const recipientSocketId = this.userSockets.get(otherUserId.toString());
         
         if (recipientSocketId) {
           this.io!.to(recipientSocketId).emit('user_stopped_typing', {
@@ -300,7 +300,7 @@ class WebSocketService {
       );
 
       // Notify sender that messages were read
-      const senderSocketId = this.userSockets.get(otherUserId);
+      const senderSocketId = this.userSockets.get(otherUserId) || this.userSockets.get(otherUserId.toString());
       if (senderSocketId) {
         this.io!.to(senderSocketId).emit('messages_read', {
           conversationId,
@@ -347,7 +347,7 @@ class WebSocketService {
       
       // Also try direct socket emission as a fallback
       if (socketCount === 0) {
-        const userSocketId = this.userSockets.get(userId);
+        const userSocketId = this.userSockets.get(userId) || this.userSockets.get(userId.toString());
         if (userSocketId) {
           console.log(`⚠️  WebSocket - No sockets in user room, trying direct socket emission`);
           this.io.to(userSocketId).emit(event, data);
@@ -397,7 +397,7 @@ class WebSocketService {
 
   // Get online users
   public getOnlineUsers(): number[] {
-    return Array.from(this.userSockets.keys());
+    return Array.from(this.userSockets.keys()).map((k) => Number(k)).filter((n) => !Number.isNaN(n));
   }
 
   // Check if user is online

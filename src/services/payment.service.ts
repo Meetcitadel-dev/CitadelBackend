@@ -46,12 +46,12 @@ class PaymentService {
       console.log('Booking created:', booking._id);
 
       // Create Razorpay order
-      const razorpayOrder = await razorpay.orders.create({
+      const razorpayOrder: any = await razorpay.orders.create({
         amount: bookingData.amount * 100, // Convert to paise
         currency: bookingData.currency,
         receipt: `booking_${booking._id}`,
         notes: {
-          bookingId: booking._id?.toString(),
+          bookingId: booking._id?.toString() || '',
           userId: bookingData.userId,
           eventId: bookingData.eventId,
           eventType: bookingData.eventType,

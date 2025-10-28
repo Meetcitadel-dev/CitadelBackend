@@ -1,6 +1,4 @@
 import { Request, Response } from 'express';
-// Removed Sequelize Op import - using Mongoose queries instead
-// Removed Sequelize db import - using MongoDB with Mongoose
 import User from '../models/user.model';
 import Connection from '../models/connection.model';
 import AdjectiveMatch from '../models/adjectiveMatch.model';
@@ -11,6 +9,7 @@ import UserOnlineStatus from '../models/userOnlineStatus.model';
 import Group from '../models/group.model';
 import GroupMember from '../models/groupMember.model';
 import GroupMessage from '../models/groupMessage.model';
+import GroupMessageRead from '../models/groupMessageRead.model';
 import websocketService from '../services/websocket.service';
 import unreadCountService from '../services/unreadCount.service';
 import UserImage from '../models/userImage.model';
@@ -27,16 +26,16 @@ interface AuthenticatedRequest extends Request {
 // Resolve user's primary (slot 0) profile image URL with UploadThing/CloudFront/S3 logic
 async function getSlot0ImageUrl(userId: number): Promise<string | null> {
   try {
-    const mapping = await UserImageSlot.findOne({ where: { userId, slot: 0 } });
+    const mapping = await UserImageSlot.findOne({ userId, slot: 0 });
     if (!mapping) return null;
 
-    const img = await UserImage.findByPk(mapping.userImageId);
+    const img = await UserImage.findById(mapping.userImageId);
     if (!img) return null;
 
     const useUT = process.env.USE_UPLOADTHING === 'true';
-    const isUploadThing = typeof (img as any).cloudfrontUrl === 'string' && (img as any).cloudfrontUrl.includes('utfs.io');
+    const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
     if (isUploadThing || useUT) {
-      return (img as any).cloudfrontUrl;
+      return img.cloudfrontUrl || null;
     }
 
     try {
@@ -57,83 +56,69 @@ class ChatController {
       const userId = req.user!.id;
       console.log('🔍 [ACTIVE] Looking for active conversations for user ID:', userId);
 
-      // Get all connected users
-      const connections = await Connection.findAll({
-        where: {
-          [Op.or]: [
-            { userId1: userId },
-            { userId2: userId }
-          ],
-          status: 'connected'
-        },
-        include: [
-          {
-            model: User,
-            as: 'connectionUser1',
-            attributes: ['id', 'name', 'username']
-          },
-          {
-            model: User,
-            as: 'connectionUser2',
-            attributes: ['id', 'name', 'username']
-          }
-        ]
-      });
+      // Get all connected users - Mongoose query
+      const connections = await Connection.find({
+        $or: [
+          { userId1: userId },
+          { userId2: userId }
+        ],
+        status: 'connected'
+      })
+      .populate('userId1', 'id name username')
+      .populate('userId2', 'id name username')
+      .lean();
 
       console.log('🔗 [ACTIVE] Found connections:', connections.length);
 
       const conversations = await Promise.all(
         connections.map(async (connection: any) => {
-          // Fix: Get the OTHER user, not the same user
-          const otherUser = connection.userId1 === userId ? connection.connectionUser2 : connection.connectionUser1;
-          console.log(`👤 [ACTIVE] Other user: ${otherUser.name} (ID: ${otherUser.id})`);
+          // Get the OTHER user, not the same user
+          const otherUser = connection.userId1._id.toString() === userId.toString() 
+            ? connection.userId2 
+            : connection.userId1;
+          console.log(`👤 [ACTIVE] Other user: ${otherUser.name} (ID: ${otherUser._id})`);
           
           const conversation = await Conversation.findOne({
-            where: {
-              [Op.or]: [
-                { user1Id: userId, user2Id: otherUser.id },
-                { user1Id: otherUser.id, user2Id: userId }
-              ]
-            }
+            $or: [
+              { user1Id: userId, user2Id: otherUser._id },
+              { user1Id: otherUser._id, user2Id: userId }
+            ]
           });
 
-          console.log(`💬 [ACTIVE] Conversation found:`, conversation ? conversation.id : 'NOT FOUND');
+          console.log(`💬 [ACTIVE] Conversation found:`, conversation ? conversation._id : 'NOT FOUND');
 
-          // Get last message (simplified)
+          // Get last message
           let lastMessage = null;
           let lastMessageTime = null;
           if (conversation) {
-            const lastMsg = await Message.findOne({
-              where: { conversationId: conversation.id },
-              order: [['createdAt', 'DESC']]
-            });
+            const lastMsg = await Message.findOne({ conversationId: conversation._id })
+              .sort({ createdAt: -1 })
+              .lean();
             if (lastMsg) {
-              lastMessage = lastMsg.text;
-              lastMessageTime = lastMsg.createdAt;
+              lastMessage = (lastMsg as any).text;
+              lastMessageTime = (lastMsg as any).createdAt;
             }
           }
 
-          // Get unread count (simplified)
+          // Get unread count
           let unreadCount = 0;
           if (conversation) {
-            unreadCount = await Message.count({
-              where: {
-                conversationId: conversation.id,
-                senderId: otherUser.id,
-                status: { [Op.ne]: 'read' }
-              }
+            unreadCount = await Message.countDocuments({
+              conversationId: conversation._id,
+              senderId: otherUser._id,
+              status: { $ne: 'read' }
             });
           }
 
-          const profileImage = await getSlot0ImageUrl(otherUser.id);
+          const profileImage = await getSlot0ImageUrl(otherUser._id);
           return {
-            id: conversation?.id || null,
-            userId: otherUser.id,
+            id: conversation?._id || null,
+            userId: otherUser._id,
             name: otherUser.name || otherUser.username || 'Unknown User',
             profileImage,
             lastMessage,
             lastMessageTime,
-            isOnline: false, // Simplified for now
+            isOnline: false,
             unreadCount,
             type: 'individual'
           };
@@ -141,63 +126,54 @@ class ChatController {
       );
 
       // Get user's groups
-      const groupMemberships = await GroupMember.findAll({
-        where: { userId },
-        include: [
-          {
-            model: Group,
-            as: 'group',
-            where: { isActive: true }
-          }
-        ]
-      });
+      const groupMemberships = await GroupMember.find({ userId })
+        .populate({
+          path: 'groupId',
+          match: { isActive: true }
+        })
+        .lean();
 
       console.log('👥 [ACTIVE] Found groups:', groupMemberships.length);
 
       const groupConversations = await Promise.all(
-        groupMemberships.map(async (membership: any) => {
-          const group = membership.group;
-          
-          // Get last message
-          const lastMessage = await GroupMessage.findOne({
-            where: { groupId: group.id },
-            order: [['createdAt', 'DESC']],
-            include: [
-              {
-                model: User,
-                as: 'sender',
-                attributes: ['id', 'name', 'username']
-              }
-            ]
-          });
+        groupMemberships
+          .filter((membership: any) => membership.groupId) // Filter out null groups
+          .map(async (membership: any) => {
+            const group = membership.groupId;
+            
+            // Get last message
+            const lastMessage = await GroupMessage.findOne({ groupId: group._id })
+              .sort({ createdAt: -1 })
+              .populate('senderId', 'id name username')
+              .lean();
 
-          // Get unread count
-          const unreadCount = await GroupMessage.count({
-            where: {
-              groupId: group.id,
-              senderId: { [Op.ne]: userId },
-              id: {
-                [Op.notIn]: sequelize.literal(`(
-                  SELECT "messageId" FROM "group_message_reads" 
-                  WHERE "userId" = ${userId}
-                )`)
-              }
-            }
-          });
+            // Get unread count - messages not in user's read list
+            const readMessageIds = await GroupMessageRead.find({ 
+              userId, 
+              groupId: group._id 
+            }).distinct('messageId');
 
-          return {
-            id: `group_${group.id}`,
-            groupId: group.id,
-            name: group.name,
-            profileImage: group.avatarUrl,
-            lastMessage: lastMessage ? lastMessage.content : null,
-            lastMessageTime: lastMessage ? lastMessage.createdAt : null,
-            isOnline: false,
-            unreadCount,
-            type: 'group',
-            memberCount: await GroupMember.count({ where: { groupId: group.id } })
-          };
-        })
+            const unreadCount = await GroupMessage.countDocuments({
+              groupId: group._id,
+              senderId: { $ne: userId },
+              _id: { $nin: readMessageIds }
+            });
+
+            const memberCount = await GroupMember.countDocuments({ groupId: group._id });
+
+            return {
+              id: `group_${group._id}`,
+              groupId: group._id,
+              name: group.name,
+              profileImage: group.avatarUrl,
+              lastMessage: lastMessage ? lastMessage.content : null,
+              lastMessageTime: lastMessage ? lastMessage.createdAt : null,
+              isOnline: false,
+              unreadCount,
+              type: 'group',
+              memberCount
+            };
+          })
       );
 
       const allConversations = [...conversations.filter((conv: any) => conv.id !== null), ...groupConversations];
@@ -230,95 +206,79 @@ class ChatController {
       const userId = req.user!.id;
       console.log('🔍 [MATCHES] Looking for matched conversations for user ID:', userId);
 
-      // Get all matched users using the new Match model
-      const matches = await Match.findAll({
-        where: {
-          [Op.or]: [
-            { userId1: userId },
-            { userId2: userId }
-          ]
-        },
-        include: [
-          {
-            model: User,
-            as: 'matchUser1',
-            attributes: ['id', 'name', 'username']
-          },
-          {
-            model: User,
-            as: 'matchUser2',
-            attributes: ['id', 'name', 'username']
-          }
+      // Get all matched users using the Match model - Mongoose query
+      const matches = await Match.find({
+        $or: [
+          { userId1: userId },
+          { userId2: userId }
         ]
-      });
+      })
+      .populate('userId1', 'id name username')
+      .populate('userId2', 'id name username')
+      .lean();
 
       console.log('💕 [MATCHES] Found matches:', matches.length);
 
       const conversations = await Promise.all(
         matches.map(async (match: any) => {
-          // Fix: Get the OTHER user, not the same user
-          const otherUser = match.userId1 === userId ? match.matchUser2 : match.matchUser1;
-          console.log(`👤 [MATCHES] Other user: ${otherUser.name} (ID: ${otherUser.id})`);
+          // Get the OTHER user, not the same user
+          const otherUser = match.userId1._id.toString() === userId.toString() 
+            ? match.userId2 
+            : match.userId1;
+          console.log(`👤 [MATCHES] Other user: ${otherUser.name} (ID: ${otherUser._id})`);
           
           const conversation = await Conversation.findOne({
-            where: {
-              [Op.or]: [
-                { user1Id: userId, user2Id: otherUser.id },
-                { user1Id: otherUser.id, user2Id: userId }
-              ]
-            }
+            $or: [
+              { user1Id: userId, user2Id: otherUser._id },
+              { user1Id: otherUser._id, user2Id: userId }
+            ]
           });
 
-          console.log(`💬 [MATCHES] Conversation found:`, conversation ? conversation.id : 'NOT FOUND');
+          console.log(`💬 [MATCHES] Conversation found:`, conversation ? conversation._id : 'NOT FOUND');
 
-          // Get last message (simplified)
+          // Get last message
           let lastMessage = null;
           let lastMessageTime = null;
           if (conversation) {
-            const lastMsg = await Message.findOne({
-              where: { conversationId: conversation.id },
-              order: [['createdAt', 'DESC']]
-            });
+            const lastMsg = await Message.findOne({ conversationId: conversation._id })
+              .sort({ createdAt: -1 })
+              .lean();
             if (lastMsg) {
-              lastMessage = lastMsg.text;
-              lastMessageTime = lastMsg.createdAt;
+              lastMessage = (lastMsg as any).text;
+              lastMessageTime = (lastMsg as any).createdAt;
             }
           }
 
-          // Get unread count (simplified)
+          // Get unread count
           let unreadCount = 0;
           if (conversation) {
-            unreadCount = await Message.count({
-              where: {
-                conversationId: conversation.id,
-                senderId: otherUser.id,
-                status: { [Op.ne]: 'read' }
-              }
+            unreadCount = await Message.countDocuments({
+              conversationId: conversation._id,
+              senderId: otherUser._id,
+              status: { $ne: 'read' }
             });
           }
 
-          const profileImage = await getSlot0ImageUrl(otherUser.id);
+          const profileImage = await getSlot0ImageUrl(otherUser._id);
           return {
-            id: conversation?.id || null,
-            userId: otherUser.id,
+            id: conversation?._id || null,
+            userId: otherUser._id,
             name: otherUser.name || otherUser.username || 'Unknown User',
             profileImage,
             lastMessage,
             lastMessageTime,
-            isOnline: false, // Simplified for now
+            isOnline: false,
             unreadCount
           };
         })
       );
 
-      // Don't filter out matches without conversations - they should still appear in matches section
-      // const filteredConversations = conversations.filter((conv: any) => conv.id !== null);
-      const filteredConversations = conversations; // Return all matches, even without conversations
-      console.log('✅ [MATCHES] Returning all matches:', filteredConversations.length);
+      // Return all matches, even without conversations
+      console.log('✅ [MATCHES] Returning all matches:', conversations.length);
 
       res.json({
         success: true,
-        conversations: filteredConversations
+        conversations: conversations
       });
     } catch (error) {
       console.error('❌ [MATCHES] Error fetching matched conversations:', error);
@@ -337,13 +297,11 @@ class ChatController {
 
       // Verify user has access to this conversation
       const conversation = await Conversation.findOne({
-        where: {
-          id: conversationId,
-          [Op.or]: [
-            { user1Id: userId },
-            { user2Id: userId }
-          ]
-        }
+        _id: conversationId,
+        $or: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
       });
 
       if (!conversation) {
@@ -353,27 +311,20 @@ class ChatController {
         });
       }
 
-      const messages = await Message.findAll({
-        where: { conversationId },
-        order: [['createdAt', 'ASC']],
-        include: [
-          {
-            model: User,
-            as: 'messageSender',
-            attributes: ['id', 'name', 'username']
-          }
-        ]
-      });
+      const messages = await Message.find({ conversationId })
+        .sort({ createdAt: 1 })
+        .populate('senderId', 'id name username')
+        .lean();
 
       const formattedMessages = messages.map((msg: any) => ({
-        id: msg.id,
+        id: msg._id,
         text: msg.text,
-        isSent: msg.senderId === userId,
+        isSent: msg.senderId._id.toString() === userId.toString(),
         timestamp: msg.createdAt,
         status: msg.status,
         sender: {
-          id: msg.messageSender?.id,
-          name: msg.messageSender?.name || msg.messageSender?.username || 'Unknown User'
+          id: msg.senderId._id,
+          name: msg.senderId.name || msg.senderId.username || 'Unknown User'
         }
       }));
 
@@ -413,13 +364,11 @@ class ChatController {
 
       // Verify user has access to this conversation
       const conversation = await Conversation.findOne({
-        where: {
-          id: conversationId,
-          [Op.or]: [
-            { user1Id: userId },
-            { user2Id: userId }
-          ]
-        }
+        _id: conversationId,
+        $or: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
       });
 
       if (!conversation) {
@@ -438,26 +387,29 @@ class ChatController {
       });
 
       // Update conversation updatedAt
-      await conversation.update({ updatedAt: new Date() });
+      conversation.updatedAt = new Date();
+      await conversation.save();
 
       // Get the other user in the conversation
-      const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+      const otherUserId = conversation.user1Id.toString() === userId.toString() 
+        ? conversation.user2Id 
+        : conversation.user1Id;
 
-      // Update unread count for the recipient (use other user's numeric ID as chatId for direct chats)
-      await unreadCountService.updateDirectChatUnreadCount(otherUserId, userId, otherUserId, newMessage.id);
+      // Update unread count for the recipient
+      await unreadCountService.updateDirectChatUnreadCount((otherUserId as unknown as number), userId, (otherUserId as unknown as number), (newMessage as any)._id);
 
       // Emit real-time message to recipient if online
       console.log(`📡 Chat Controller - Checking if user ${otherUserId} is online...`);
-      if (websocketService.isUserOnline(otherUserId)) {
+      if (websocketService.isUserOnline(otherUserId as unknown as number)) {
         console.log(`✅ Chat Controller - User ${otherUserId} is online, emitting new_message`);
-        websocketService.emitToUser(otherUserId, 'new_message', {
+        websocketService.emitToUser(otherUserId as unknown as number, 'new_message', {
           conversationId,
           message: {
-            id: newMessage.id,
-            text: newMessage.text,
-            senderId: newMessage.senderId,
-            timestamp: newMessage.createdAt,
-            status: newMessage.status
+            id: (newMessage as any)._id,
+            text: (newMessage as any).text,
+            senderId: (newMessage as any).senderId,
+            timestamp: (newMessage as any).createdAt,
+            status: (newMessage as any).status
           }
         });
       } else {
@@ -465,23 +417,23 @@ class ChatController {
       }
 
       // Emit confirmation to sender
-      if (websocketService.isUserOnline(userId)) {
-        websocketService.emitToUser(userId, 'message_sent', {
-          messageId: newMessage.id,
+      if (websocketService.isUserOnline(userId as unknown as number)) {
+        websocketService.emitToUser(userId as unknown as number, 'message_sent', {
+          messageId: (newMessage as any)._id,
           conversationId,
-          message: newMessage.text,
-          timestamp: newMessage.createdAt,
-          status: newMessage.status
+          message: (newMessage as any).text,
+          timestamp: (newMessage as any).createdAt,
+          status: (newMessage as any).status
         });
       }
 
       res.json({
         success: true,
         message: {
-          id: newMessage.id,
-          text: newMessage.text,
-          timestamp: newMessage.createdAt,
-          status: newMessage.status
+          id: newMessage._id,
+          text: (newMessage as any).text,
+          timestamp: (newMessage as any).createdAt,
+          status: (newMessage as any).status
         }
       });
     } catch (error) {
@@ -501,13 +453,11 @@ class ChatController {
 
       // Verify user has access to this conversation
       const conversation = await Conversation.findOne({
-        where: {
-          id: conversationId,
-          [Op.or]: [
-            { user1Id: userId },
-            { user2Id: userId }
-          ]
-        }
+        _id: conversationId,
+        $or: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
       });
 
       if (!conversation) {
@@ -518,25 +468,25 @@ class ChatController {
       }
 
       // Mark all messages from other user as read
-      const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+      const otherUserId = conversation.user1Id.toString() === userId.toString() 
+        ? conversation.user2Id 
+        : conversation.user1Id;
       
-      await Message.update(
-        { status: 'read' },
+      await Message.updateMany(
         {
-          where: {
-            conversationId,
-            senderId: otherUserId,
-            status: { [Op.ne]: 'read' }
-          }
-        }
+          conversationId,
+          senderId: otherUserId,
+          status: { $ne: 'read' }
+        },
+        { $set: { status: 'read' } }
       );
 
-      // Reset unread count for this user in this direct chat (keyed by other user's ID)
-      await unreadCountService.resetUnreadCount(userId, otherUserId, false);
+      // Reset unread count for this user in this direct chat
+      await unreadCountService.resetUnreadCount(userId, otherUserId as unknown as number, false);
 
       // Notify sender that messages were read (real-time)
-      if (websocketService.isUserOnline(otherUserId)) {
-        websocketService.emitToUser(otherUserId, 'messages_read', {
+      if (websocketService.isUserOnline(otherUserId as unknown as number)) {
+        websocketService.emitToUser(otherUserId as unknown as number, 'messages_read', {
           conversationId,
           readBy: userId
         });
@@ -567,9 +517,9 @@ class ChatController {
         });
       }
 
-      const targetUser = await User.findByPk(targetUserId, {
-        attributes: ['id', 'name', 'username']
-      });
+      const targetUser = await User.findById(targetUserId)
+        .select('id name username')
+        .lean();
 
       if (!targetUser) {
         return res.status(404).json({
@@ -580,12 +530,10 @@ class ChatController {
 
       // Check if conversation already exists
       let conversation = await Conversation.findOne({
-        where: {
-          [Op.or]: [
-            { user1Id: userId, user2Id: targetUserId },
-            { user1Id: targetUserId, user2Id: userId }
-          ]
-        }
+        $or: [
+          { user1Id: userId, user2Id: targetUserId },
+          { user1Id: targetUserId, user2Id: userId }
+        ]
       });
 
       // If conversation doesn't exist, create it
@@ -596,12 +544,12 @@ class ChatController {
         });
       }
 
-      const profileImage = await getSlot0ImageUrl(targetUser.id);
+      const profileImage = await getSlot0ImageUrl((targetUser as any)._id as unknown as number);
       res.json({
         success: true,
         conversation: {
-          id: conversation.id,
-          userId: targetUser.id,
+          id: conversation._id,
+          userId: targetUser._id,
           name: targetUser.name || targetUser.username || 'Unknown User',
           profileImage
         }
@@ -630,13 +578,11 @@ class ChatController {
 
       // Find the conversation and verify user has access
       const conversation = await Conversation.findOne({
-        where: {
-          id: conversationId,
-          [Op.or]: [
-            { user1Id: userId },
-            { user2Id: userId }
-          ]
-        }
+        _id: conversationId,
+        $or: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
       });
 
       if (!conversation) {
@@ -647,20 +593,15 @@ class ChatController {
       }
 
       // Get the other user's ID
-      const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+      const otherUserId = conversation.user1Id.toString() === userId.toString() 
+        ? conversation.user2Id 
+        : conversation.user1Id;
 
       // Get the other user's details
-      const otherUser = await User.findByPk(otherUserId, {
-        attributes: ['id', 'name', 'username'],
-        include: [
-          {
-            model: UserImage,
-            as: 'images',
-            attributes: ['cloudfrontUrl'],
-            required: false
-          }
-        ]
-      });
+      const otherUser = await User.findById(otherUserId)
+        .select('id name username')
+        .populate('images', 'cloudfrontUrl')
+        .lean();
 
       if (!otherUser) {
         return res.status(404).json({
@@ -669,12 +610,12 @@ class ChatController {
         });
       }
 
-      const profileImage = await getSlot0ImageUrl(otherUser.id);
+      const profileImage = await getSlot0ImageUrl((otherUser as any)._id as unknown as number);
       res.json({
         success: true,
         conversation: {
-          id: conversation.id,
-          userId: otherUser.id,
+          id: conversation._id,
+          userId: otherUser._id,
           name: otherUser.name || otherUser.username || 'Unknown User',
           profileImage
         }
@@ -689,4 +630,4 @@ class ChatController {
   }
 }
 
-export default new ChatController(); 
+export default new ChatController();

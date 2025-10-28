@@ -19,46 +19,48 @@ const connectMongoDB = async (): Promise<void> => {
         if (db) {
           // Clean up payments collection indexes
           const paymentsCollection = db.collection('payments');
-          const paymentIndexes = await paymentsCollection.getIndexes();
-          console.log('📋 Current payment indexes:', Object.keys(paymentIndexes));
+          const paymentIndexesArr = await paymentsCollection.listIndexes().toArray();
+          const paymentIndexNames = paymentIndexesArr.map((idx: any) => idx.name);
+          console.log('📋 Current payment indexes:', paymentIndexNames);
 
           // Drop problematic payment indexes
-          if (paymentIndexes['razorpayOrderId_1']) {
+          if (paymentIndexNames.includes('razorpayOrderId_1')) {
             await paymentsCollection.dropIndex('razorpayOrderId_1');
             console.log('🗑️  Dropped razorpayOrderId_1 index from payments');
           }
-          if (paymentIndexes['razorpayPaymentId_1']) {
+          if (paymentIndexNames.includes('razorpayPaymentId_1')) {
             await paymentsCollection.dropIndex('razorpayPaymentId_1');
             console.log('🗑️  Dropped razorpayPaymentId_1 index from payments');
           }
-          if (paymentIndexes['phonepeOrderId_1']) {
+          if (paymentIndexNames.includes('phonepeOrderId_1')) {
             await paymentsCollection.dropIndex('phonepeOrderId_1');
             console.log('🗑️  Dropped phonepeOrderId_1 index from payments');
           }
-          if (paymentIndexes['phonepePaymentId_1']) {
+          if (paymentIndexNames.includes('phonepePaymentId_1')) {
             await paymentsCollection.dropIndex('phonepePaymentId_1');
             console.log('🗑️  Dropped phonepePaymentId_1 index from payments');
           }
 
           // Clean up bookings collection indexes
           const bookingsCollection = db.collection('bookings');
-          const bookingIndexes = await bookingsCollection.getIndexes();
-          console.log('📋 Current booking indexes:', Object.keys(bookingIndexes));
+          const bookingIndexesArr = await bookingsCollection.listIndexes().toArray();
+          const bookingIndexNames = bookingIndexesArr.map((idx: any) => idx.name);
+          console.log('📋 Current booking indexes:', bookingIndexNames);
 
           // Drop problematic booking indexes (non-sparse versions)
-          if (bookingIndexes['razorpayOrderId_1']) {
+          if (bookingIndexNames.includes('razorpayOrderId_1')) {
             await bookingsCollection.dropIndex('razorpayOrderId_1');
             console.log('🗑️  Dropped razorpayOrderId_1 index from bookings');
           }
-          if (bookingIndexes['razorpayPaymentId_1']) {
+          if (bookingIndexNames.includes('razorpayPaymentId_1')) {
             await bookingsCollection.dropIndex('razorpayPaymentId_1');
             console.log('🗑️  Dropped razorpayPaymentId_1 index from bookings');
           }
-          if (bookingIndexes['phonepeOrderId_1']) {
+          if (bookingIndexNames.includes('phonepeOrderId_1')) {
             await bookingsCollection.dropIndex('phonepeOrderId_1');
             console.log('🗑️  Dropped phonepeOrderId_1 index from bookings');
           }
-          if (bookingIndexes['phonepePaymentId_1']) {
+          if (bookingIndexNames.includes('phonepePaymentId_1')) {
             await bookingsCollection.dropIndex('phonepePaymentId_1');
             console.log('🗑️  Dropped phonepePaymentId_1 index from bookings');
           }

@@ -53,7 +53,7 @@ export const submitQuizAnswers = async (req: Request, res: Response) => {
     // Get all quiz questions to verify answers
     const quizIds = answers.map(a => a.quizId);
     const quizzes = await Quiz.find({ _id: { $in: quizIds } });
-    const quizMap = new Map(quizzes.map(q => [q._id.toString(), q]));
+    const quizMap = new Map(quizzes.map((q: any) => [q._id.toString(), q]));
 
     let totalPoints = 0;
     let correctAnswers = 0;

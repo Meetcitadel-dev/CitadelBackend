@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-// Removed Sequelize Op import - using Mongoose queries instead
 import User from '../models/user.model';
 import Connection from '../models/connection.model';
 import Match from '../models/match.model';
@@ -25,87 +24,71 @@ class EnhancedChatController {
       const userId = req.user!.id;
       console.log('🔍 [ENHANCED MATCHES] Looking for matched conversations for user ID:', userId);
 
-      // Get all matched users using the new Match model
-      const matches = await Match.findAll({
-        where: {
-          [Op.or]: [
-            { userId1: userId },
-            { userId2: userId }
-          ]
-        },
-        include: [
-          {
-            model: User,
-            as: 'matchUser1',
-            attributes: ['id', 'name', 'username']
-          },
-          {
-            model: User,
-            as: 'matchUser2',
-            attributes: ['id', 'name', 'username']
-          }
+      // Get all matched users using the new Match model - Mongoose query
+      const matches = await Match.find({
+        $or: [
+          { userId1: userId },
+          { userId2: userId }
         ]
-      });
+      })
+      .populate('userId1', 'id name username')
+      .populate('userId2', 'id name username')
+      .lean();
 
       console.log('💕 [ENHANCED MATCHES] Found matches:', matches.length);
 
       const conversations = await Promise.all(
         matches.map(async (match: any) => {
           // Get the OTHER user, not the same user
-          const otherUser = match.userId1 === userId ? match.matchUser2 : match.matchUser1;
-          console.log(`👤 [ENHANCED MATCHES] Other user: ${otherUser.name} (ID: ${otherUser.id})`);
+          const otherUser = match.userId1._id.toString() === userId.toString() 
+            ? match.userId2 
+            : match.userId1;
+          console.log(`👤 [ENHANCED MATCHES] Other user: ${otherUser.name} (ID: ${otherUser._id})`);
           
           const conversation = await Conversation.findOne({
-            where: {
-              [Op.or]: [
-                { user1Id: userId, user2Id: otherUser.id },
-                { user1Id: otherUser.id, user2Id: userId }
-              ]
-            }
+            $or: [
+              { user1Id: userId, user2Id: otherUser._id },
+              { user1Id: otherUser._id, user2Id: userId }
+            ]
           });
 
-          console.log(`💬 [ENHANCED MATCHES] Conversation found:`, conversation ? conversation.id : 'NOT FOUND');
+          console.log(`💬 [ENHANCED MATCHES] Conversation found:`, conversation ? conversation._id : 'NOT FOUND');
 
           // Get last message
           let lastMessage = null;
           let lastMessageTime = null;
           if (conversation) {
-            const lastMsg = await Message.findOne({
-              where: { conversationId: conversation.id },
-              order: [['createdAt', 'DESC']]
-            });
+            const lastMsg = await Message.findOne({ conversationId: conversation._id })
+              .sort({ createdAt: -1 })
+              .lean();
             if (lastMsg) {
-              lastMessage = lastMsg.text;
-              lastMessageTime = lastMsg.createdAt;
+              lastMessage = (lastMsg as any).text;
+              lastMessageTime = (lastMsg as any).createdAt;
             }
           }
 
           // Get unread count
           let unreadCount = 0;
           if (conversation) {
-            unreadCount = await Message.count({
-              where: {
-                conversationId: conversation.id,
-                senderId: otherUser.id,
-                status: { [Op.ne]: 'read' }
-              }
+            unreadCount = await Message.countDocuments({
+              conversationId: conversation._id,
+              senderId: otherUser._id,
+              status: { $ne: 'read' }
             });
           }
 
           // Check if users are connected
           const connection = await Connection.findOne({
-            where: {
-              [Op.or]: [
-                { userId1: userId, userId2: otherUser.id },
-                { userId1: otherUser.id, userId2: userId }
-              ],
-              status: 'connected'
-            }
+            $or: [
+              { userId1: userId, userId2: otherUser._id },
+              { userId1: otherUser._id, userId2: userId }
+            ],
+            status: 'connected'
           });
 
           // Check if users have chat history
-          const hasChatHistory = conversation && await Message.count({
-            where: { conversationId: conversation.id }
+          const hasChatHistory = conversation && await Message.countDocuments({
+            conversationId: conversation._id
           }) > 0;
 
           // Determine the case
@@ -122,17 +105,18 @@ class EnhancedChatController {
           const profileImage = await (async () => {
             try {
               // Prefer slot 0
-              const mapping = await UserImageSlot.findOne({ where: { userId: otherUser.id, slot: 0 } });
-              let img: UserImage | null = null;
+              const mapping = await UserImageSlot.findOne({ userId: otherUser._id, slot: 0 });
+              let img: any = null;
               if (mapping) {
-                img = await UserImage.findByPk(mapping.userImageId);
+                img = await UserImage.findById(mapping.userImageId);
               }
 
               // Fallback to first available slot
               if (!img) {
-                const anyMapping = await UserImageSlot.findOne({ where: { userId: otherUser.id }, order: [['slot', 'ASC']] });
+                const anyMapping = await UserImageSlot.findOne({ userId: otherUser._id })
+                  .sort({ slot: 1 });
                 if (anyMapping) {
-                  img = await UserImage.findByPk(anyMapping.userImageId);
+                  img = await UserImage.findById(anyMapping.userImageId);
                 }
               }
 
@@ -150,14 +134,14 @@ class EnhancedChatController {
                 return generateS3SignedUrl(img.s3Key);
               }
             } catch (e) {
-              console.warn('[ENHANCED MATCHES] Failed to resolve profile image for user', otherUser.id, e);
+              console.warn('[ENHANCED MATCHES] Failed to resolve profile image for user', otherUser._id, e);
               return null;
             }
           })();
 
           return {
-            id: conversation?.id || null,
-            userId: otherUser.id,
+            id: conversation?._id || null,
+            userId: otherUser._id,
             name: otherUser.name || otherUser.username || 'Unknown User',
             profileImage,
             lastMessage,
@@ -176,14 +160,12 @@ class EnhancedChatController {
         })
       );
 
-      // Don't filter out matches without conversations - they should still appear in matches section
-      // const filteredConversations = conversations.filter((conv: any) => conv.id !== null);
-      const filteredConversations = conversations; // Return all matches, even without conversations
-      console.log('✅ [ENHANCED MATCHES] Returning all matches:', filteredConversations.length);
+      // Return all matches, even without conversations
+      console.log('✅ [ENHANCED MATCHES] Returning all matches:', conversations.length);
 
       res.json({
         success: true,
-        conversations: filteredConversations
+        conversations: conversations
       });
     } catch (error) {
       console.error('❌ [ENHANCED MATCHES] Error fetching matched conversations:', error);
@@ -207,12 +189,10 @@ class EnhancedChatController {
 
       // Check if match exists
       const match = await Match.findOne({
-        where: {
-          [Op.or]: [
-            { userId1: currentUserId, userId2: targetUserId },
-            { userId1: targetUserId, userId2: currentUserId }
-          ]
-        }
+        $or: [
+          { userId1: currentUserId, userId2: targetUserId },
+          { userId1: targetUserId, userId2: currentUserId }
+        ]
       });
 
       if (!match) {
@@ -222,13 +202,11 @@ class EnhancedChatController {
 
       // Check if already connected
       const existingConnection = await Connection.findOne({
-        where: {
-          [Op.or]: [
-            { userId1: currentUserId, userId2: targetUserId },
-            { userId1: targetUserId, userId2: currentUserId }
-          ],
-          status: 'connected'
-        }
+        $or: [
+          { userId1: currentUserId, userId2: targetUserId },
+          { userId1: targetUserId, userId2: currentUserId }
+        ],
+        status: 'connected'
       });
 
       if (existingConnection) {
@@ -236,31 +214,32 @@ class EnhancedChatController {
         return;
       }
 
-      // Create or update connection request
-      const [connection, created] = await Connection.findOrCreate({
-        where: {
-          [Op.or]: [
-            { userId1: currentUserId, userId2: targetUserId },
-            { userId1: targetUserId, userId2: currentUserId }
-          ]
-        },
-        defaults: {
+      // Check if connection request already exists
+      let connection = await Connection.findOne({
+        $or: [
+          { userId1: currentUserId, userId2: targetUserId },
+          { userId1: targetUserId, userId2: currentUserId }
+        ]
+      });
+
+      if (connection) {
+        // Update existing connection to requested status
+        connection.status = 'requested';
+        await connection.save();
+      } else {
+        // Create new connection request
+        connection = await Connection.create({
           userId1: Math.min(currentUserId, targetUserId),
           userId2: Math.max(currentUserId, targetUserId),
           status: 'requested'
-        }
-      });
-
-      if (!created) {
-        // Update existing connection to requested status
-        await connection.update({ status: 'requested' });
+        });
       }
 
       // Create notification for target user
       await NotificationReadStatus.create({
         userId: targetUserId,
         notificationType: 'connection_request',
-        notificationId: connection.id,
+        notificationId: connection._id,
         isRead: false,
         createdAt: new Date()
       });
@@ -315,13 +294,11 @@ class EnhancedChatController {
 
       // Check if users are connected
       const connection = await Connection.findOne({
-        where: {
-          [Op.or]: [
-            { userId1: currentUserId, userId2: targetUserId },
-            { userId1: targetUserId, userId2: currentUserId }
-          ],
-          status: 'connected'
-        }
+        $or: [
+          { userId1: currentUserId, userId2: targetUserId },
+          { userId1: targetUserId, userId2: currentUserId }
+        ],
+        status: 'connected'
       });
 
       if (!connection) {
@@ -357,18 +334,16 @@ class EnhancedChatController {
 
       // Find conversation between users
       const conversation = await Conversation.findOne({
-        where: {
-          [Op.or]: [
-            { user1Id: currentUserId, user2Id: targetUserId },
-            { user1Id: targetUserId, user2Id: currentUserId }
-          ]
-        }
+        $or: [
+          { user1Id: currentUserId, user2Id: targetUserId },
+          { user1Id: targetUserId, user2Id: currentUserId }
+        ]
       });
 
       let hasChatHistory = false;
       if (conversation) {
-        const messageCount = await Message.count({
-          where: { conversationId: conversation.id }
+        const messageCount = await Message.countDocuments({
+          conversationId: conversation._id
         });
         hasChatHistory = messageCount > 0;
       }
@@ -397,27 +372,29 @@ class EnhancedChatController {
       }
 
       // Get conversation and verify sender is part of it
-      const conversation = await Conversation.findByPk(conversationId);
+      const conversation = await Conversation.findById(conversationId);
       if (!conversation) {
         res.status(404).json({ success: false, message: 'Conversation not found' });
         return;
       }
 
-      if (conversation.user1Id !== senderId && conversation.user2Id !== senderId) {
+      if (conversation.user1Id.toString() !== senderId.toString() && 
+          conversation.user2Id.toString() !== senderId.toString()) {
         res.status(403).json({ success: false, message: 'You are not part of this conversation' });
         return;
       }
 
       // Check if users are connected (for enhanced system)
-      const otherUserId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
+      const otherUserId = conversation.user1Id.toString() === senderId.toString() 
+        ? conversation.user2Id 
+        : conversation.user1Id;
+        
       const connection = await Connection.findOne({
-        where: {
-          [Op.or]: [
-            { userId1: senderId, userId2: otherUserId },
-            { userId1: otherUserId, userId2: senderId }
-          ],
-          status: 'connected'
-        }
+        $or: [
+          { userId1: senderId, userId2: otherUserId },
+          { userId1: otherUserId, userId2: senderId }
+        ],
+        status: 'connected'
       });
 
       if (!connection) {
@@ -438,7 +415,7 @@ class EnhancedChatController {
       //   type: 'new_message',
       //   conversationId,
       //   message: {
-      //     id: message.id,
+      //     id: message._id,
       //     text: message.text,
       //     senderId: message.senderId,
       //     timestamp: message.createdAt
@@ -449,10 +426,10 @@ class EnhancedChatController {
         success: true,
         message: 'Message sent successfully',
         data: {
-          id: message.id,
-          text: message.text,
-          senderId: message.senderId,
-          timestamp: message.createdAt
+          id: (message as any)._id,
+          text: (message as any).text,
+          senderId: (message as any).senderId,
+          timestamp: (message as any).createdAt
         }
       });
 
@@ -463,4 +440,4 @@ class EnhancedChatController {
   }
 }
 
-export default new EnhancedChatController(); 
+export default new EnhancedChatController();

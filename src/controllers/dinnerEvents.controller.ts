@@ -59,7 +59,7 @@ export const getUpcomingEvents = async (req: Request, res: Response) => {
       availableSeats: event.maxAttendees - event.currentAttendees,
       bookingFee: event.bookingFee,
       status: event.status,
-      isBooked: bookedEventIds.includes(event._id.toString()),
+      isBooked: bookedEventIds.includes(event.id.toString()),
       isFull: event.currentAttendees >= event.maxAttendees
     }));
 
@@ -241,7 +241,7 @@ export const createBooking = async (req: Request, res: Response) => {
           paymentMethod,
           paymentGateway,
           paymentStatus: finalPaymentStatus,
-          bookingId: booking._id.toString()
+          bookingId: booking.id.toString()
         });
 
         console.log('✅ Booking confirmation email sent successfully');
@@ -295,10 +295,35 @@ export const getUserBookings = async (req: Request, res: Response) => {
     const bookingIds = bookings.map(b => b.eventId);
     const events = await DinnerEvent.find({ _id: { $in: bookingIds } });
 
-    const eventMap = new Map(events.map(e => [e._id.toString(), e]));
+    const eventMap = new Map(events.map(e => [e.id.toString(), e]));
 
-    const bookingsWithEvents = bookings
-      .map(booking => {
+    type BookingWithEvent = {
+      bookingId: any;
+      eventId: any;
+      eventDate: any;
+      eventTime: any;
+      city: string;
+      area: string;
+      venue: any;
+      venueAddress: any;
+      venueDetails: any;
+      bookingStatus: string;
+      bookingDate: Date;
+      paymentAmount: number;
+      paymentMethod: string;
+      paymentGateway: string;
+      paymentStatus: string;
+      paymentId: string;
+      maxAttendees: number;
+      currentAttendees: number;
+      bookingFee: number;
+      isPast: boolean;
+      groupChatId: any;
+      groupChatCreated: any;
+    };
+
+    const bookingsWithEvents: BookingWithEvent[] = bookings
+      .map<BookingWithEvent | null>(booking => {
         const event = eventMap.get(booking.eventId.toString());
         if (!event) return null;
 
@@ -330,7 +355,7 @@ export const getUserBookings = async (req: Request, res: Response) => {
           groupChatCreated: event.groupChatCreated
         };
       })
-      .filter(b => b !== null);
+      .filter((b): b is BookingWithEvent => b !== null);
 
     // Filter based on type
     const filteredBookings = type === 'upcoming'

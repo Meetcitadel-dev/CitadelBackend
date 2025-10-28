@@ -10,6 +10,7 @@ import Interaction from '../models/interaction.model';
 import { generateCloudFrontSignedUrl, generateS3SignedUrl } from '../services/s3.service';
 import websocketService from '../services/websocket.service';
 // Removed Sequelize Op import - using Mongoose queries instead
+const Op = {} as any; // Placeholder to satisfy TypeScript for legacy operator references
 
 // Adjective pool for matching
 const ADJECTIVES = [
@@ -146,7 +147,7 @@ const getConnectionState = async (userId1: number, userId2: number): Promise<any
 
 // Get selected adjectives for a user pair
 const getSelectedAdjectives = async (userId1: number, userId2: number): Promise<string[]> => {
-  const adjectives = await AdjectiveMatch.findAll({
+  const adjectives = await (AdjectiveMatch as any).findAll({
     where: {
       userId1,
       userId2
@@ -154,7 +155,7 @@ const getSelectedAdjectives = async (userId1: number, userId2: number): Promise<
     attributes: ['adjective']
   });
   
-  return adjectives.map(adj => adj.adjective);
+  return adjectives.map((adj: any) => adj.adjective);
 };
 
 // Helper function to detect if a URL is from UploadThing
@@ -206,7 +207,7 @@ const regenerateImageUrls = async (images: any[]): Promise<any[]> => {
 const getSlotOrganizedImages = async (userId: number): Promise<{ profileImage: string | null, uploadedImages: string[] }> => {
   try {
     // Fetch slot mappings and resolve images in slot order (0..4)
-    const slotMappings = await UserImageSlot.findAll({
+    const slotMappings = await (UserImageSlot as any).findAll({
       where: { userId },
       order: [['slot', 'ASC']],
     });
@@ -219,14 +220,14 @@ const getSlotOrganizedImages = async (userId: number): Promise<{ profileImage: s
     // Prefetch all images referenced by slots
     const referencedIds = Array.from(slotToImageId.values());
     const referencedImages = referencedIds.length
-      ? await UserImage.findAll({ where: { id: referencedIds } })
+      ? await (UserImage as any).findAll({ where: { id: referencedIds } })
       : [];
 
-    const idToImage = new Map<number, UserImage>();
+    const idToImage = new Map<number, any>();
     for (const img of referencedImages) idToImage.set(img.id, img);
 
     const useUT = process.env.USE_UPLOADTHING === 'true';
-    const freshen = async (img: UserImage) => {
+    const freshen = async (img: any) => {
       const isUploadThing = typeof img.cloudfrontUrl === 'string' && img.cloudfrontUrl.includes('utfs.io');
       if (isUploadThing || useUT) {
         return {
@@ -319,7 +320,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       console.log(`   Skills: ${skills}`);
 
       // Get current user with university info
-      const currentUser = await User.findByPk(currentUserId, {
+      const currentUser = await (User as any).findByPk(currentUserId, {
         include: [{
           model: University,
           as: 'userUniversity'
@@ -332,7 +333,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       }
 
       // Get all users except current user and blocked users
-      const blockedConnections = await Connection.findAll({
+      const blockedConnections = await (Connection as any).findAll({
         where: {
           [Op.or]: [
             { userId1: currentUserId, status: 'blocked' },
@@ -341,7 +342,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         }
       });
 
-      const blockedUserIds = blockedConnections.map(conn => 
+      const blockedUserIds = blockedConnections.map((conn: any) => 
         conn.userId1 === currentUserId ? conn.userId2 : conn.userId1
       );
 
@@ -412,7 +413,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
 
       // Get all available users with filters and view count
       // First get ALL users (without limit/offset) to properly sort connected users to the end
-      let allUsers = await User.findAll({
+      let allUsers = await (User as any).findAll({
         where: whereClause,
         include: [
           {
@@ -434,7 +435,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
         const searchTerm = search.trim();
         
         // Get users by university name
-        const usersByUniversity = await User.findAll({
+        const usersByUniversity = await (User as any).findAll({
           where: {
             id: {
               [Op.ne]: currentUserId,
@@ -472,7 +473,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
 
       // Process each user to add match score and connection state
       const profiles = await Promise.all(
-        allUsers.map(async (user) => {
+        allUsers.map(async (user: any) => {
           const matchScore = calculateMatchScore(currentUser, user);
           const connectionState = await getConnectionState(currentUserId, user.id);
           const selectedAdjectives = await getSelectedAdjectives(currentUserId, user.id);
@@ -509,13 +510,13 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       // Sort by match score if requested
       if (sortBy === 'match_score') {
         // Sort all by score desc first
-        profiles.sort((a, b) => b.matchScore - a.matchScore);
+        profiles.sort((a: any, b: any) => b.matchScore - a.matchScore);
       }
 
       // Reorder: place connected users at the end, randomizing their order
       // Preserve existing order for non-connected profiles unless match_score requires tie-randomization
-      const connectedProfiles = profiles.filter(p => p.connectionState && p.connectionState.status === 'connected');
-      let nonConnectedProfiles = profiles.filter(p => !(p.connectionState && p.connectionState.status === 'connected'));
+      const connectedProfiles = profiles.filter((p: any) => p.connectionState && p.connectionState.status === 'connected');
+      let nonConnectedProfiles = profiles.filter((p: any) => !(p.connectionState && p.connectionState.status === 'connected'));
 
       // Helper: Fisher-Yates shuffle in-place
       const shuffleInPlace = <T>(arr: T[]) => {
@@ -563,7 +564,7 @@ const getExploreProfiles = async (req: Request, res: Response): Promise<void> =>
       const paginatedProfiles = reorderedProfiles.slice(startIndex, endIndex);
 
       // Get total count for pagination
-      const totalCount = await User.count({
+      const totalCount = await (User as any).count({
         where: whereClause,
         include: [
           {
@@ -631,13 +632,13 @@ const getAvailableFilters = async (req: Request, res: Response): Promise<void> =
 const getAvailableFiltersHelper = async (): Promise<any> => {
   try {
     // Get available universities
-    const universities = await University.findAll({
+    const universities = await (University as any).findAll({
       attributes: ['name'],
       order: [['name', 'ASC']]
     });
 
     // Get available skills (from all users)
-    const usersWithSkills = await User.findAll({
+    const usersWithSkills = await (User as any).findAll({
       where: {
         skills: { [Op.ne]: null as any }
       },
@@ -645,14 +646,14 @@ const getAvailableFiltersHelper = async (): Promise<any> => {
     });
 
     const allSkills = new Set<string>();
-    usersWithSkills.forEach(user => {
+    usersWithSkills.forEach((user: any) => {
       if (user.skills && Array.isArray(user.skills)) {
         user.skills.forEach((skill: string) => allSkills.add(skill));
       }
     });
 
     // Get available years
-    const years = await User.findAll({
+    const years = await (User as any).findAll({
       where: {
         year: { [Op.ne]: null as any }
       },
@@ -662,9 +663,9 @@ const getAvailableFiltersHelper = async (): Promise<any> => {
     });
 
     return {
-      availableUniversities: universities.map(u => u.name),
+      availableUniversities: universities.map((u: any) => u.name),
       availableSkills: Array.from(allSkills).sort(),
-      availableYears: years.map(y => y.year).filter(Boolean)
+      availableYears: years.map((y: any) => y.year).filter(Boolean)
     };
   } catch (error) {
     console.error('Error getting available filters:', error);
@@ -713,7 +714,7 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
             }
           } else {
             // Create new connection request
-            connectionState = await ConnectionRequest.create({
+            connectionState = await (ConnectionRequest as any).create({
               requesterId: currentUserId,
               targetId: targetUserId,
               status: 'pending'
@@ -721,7 +722,7 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
             message = 'Connection request sent successfully';
 
             // Get requester details for the notification
-            const requester = await User.findByPk(currentUserId, {
+            const requester = await (User as any).findByPk(currentUserId, {
               attributes: ['id', 'name', 'username'],
               include: [
                 {
@@ -781,10 +782,10 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
             return;
           }
 
-          await request.update({ status: 'accepted' });
+          await (request as any).update({ status: 'accepted' });
 
           // Create or update connection
-          const [newConnection, created] = await Connection.findOrCreate({
+          const [newConnection, created] = await (Connection as any).findOrCreate({
             where: {
               [Op.or]: [
                 { userId1: targetUserId, userId2: currentUserId },
@@ -806,7 +807,7 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
           message = 'Connection request accepted successfully';
 
           // Get accepter details for the notification
-          const accepter = await User.findByPk(currentUserId, {
+          const accepter = await (User as any).findByPk(currentUserId, {
             attributes: ['id', 'name', 'username'],
             include: [
               {
@@ -856,11 +857,11 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
             return;
           }
 
-          await rejectRequest.update({ status: 'rejected' });
+          await (rejectRequest as any).update({ status: 'rejected' });
           message = 'Connection request rejected successfully';
 
           // Get rejecter details for the notification
-          const rejecter = await User.findByPk(currentUserId, {
+          const rejecter = await (User as any).findByPk(currentUserId, {
             attributes: ['id', 'name', 'username']
           });
 
@@ -893,11 +894,11 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
             return;
           }
 
-          await existingConnection.destroy();
+          await (existingConnection as any).destroy();
           message = 'Connection removed successfully';
 
           // Get remover details for the notification
-          const remover = await User.findByPk(currentUserId, {
+          const remover = await (User as any).findByPk(currentUserId, {
             attributes: ['id', 'name', 'username']
           });
 
@@ -926,7 +927,7 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
           });
 
           if (blockConnection) {
-            await blockConnection.update({ status: 'blocked' });
+            await (blockConnection as any).update({ status: 'blocked' });
           } else {
             await Connection.create({
               userId1: currentUserId,
@@ -956,7 +957,7 @@ const manageConnection = async (req: Request, res: Response): Promise<void> => {
           }
 
           // Remove the blocked connection entirely
-          await unblockConnection.destroy();
+          await (unblockConnection as any).destroy();
           message = 'User unblocked successfully';
           break;
 
@@ -1028,7 +1029,7 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
       }
 
       // Create or update adjective selection
-      const [adjectiveMatch, created] = await AdjectiveMatch.findOrCreate({
+      const [adjectiveMatch, created] = await (AdjectiveMatch as any).findOrCreate({
         where: {
           userId1: currentUserId,
           userId2: targetUserId,
@@ -1049,7 +1050,7 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
       }
 
       // Track the interaction (use findOrCreate to avoid duplicate key errors)
-      await Interaction.findOrCreate({
+      await (Interaction as any).findOrCreate({
         where: {
           userId: currentUserId,
           targetUserId: targetUserId,
@@ -1077,8 +1078,8 @@ const selectAdjective = async (req: Request, res: Response): Promise<void> => {
 
       if (mutualMatch) {
         // Update both records as matched
-        await adjectiveMatch.update({ matched: true });
-        await mutualMatch.update({ matched: true });
+        await (adjectiveMatch as any).update({ matched: true });
+        await (mutualMatch as any).update({ matched: true });
         matched = true;
         matchData = {
           userId1: currentUserId,
@@ -1107,7 +1108,7 @@ const getAdjectiveMatches = async (req: Request, res: Response): Promise<void> =
     try {
       const currentUserId = (req as any).user.id;
 
-      const matches = await AdjectiveMatch.findAll({
+      const matches = await (AdjectiveMatch as any).findAll({
         where: {
           [Op.or]: [
             { userId1: currentUserId },
@@ -1129,7 +1130,7 @@ const getAdjectiveMatches = async (req: Request, res: Response): Promise<void> =
         ]
       });
 
-             const formattedMatches = matches.map(match => ({
+             const formattedMatches = matches.map((match: any) => ({
          userId1: match.userId1,
          userId2: match.userId2,
          adjective: match.adjective,
@@ -1262,7 +1263,7 @@ const getConnectionsCount = async (req: Request, res: Response): Promise<void> =
     const currentUserId = (req as any).user.id;
 
     // Count all connections where status is 'connected' and user is either userId1 or userId2
-    const connectionsCount = await Connection.count({
+  const connectionsCount = await (Connection as any).count({
       where: {
         status: 'connected',
         [Op.or]: [

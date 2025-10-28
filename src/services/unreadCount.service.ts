@@ -10,18 +10,22 @@ class UnreadCountService {
   async incrementUnreadCount(userId: number, chatId: number, isGroup: boolean, messageId?: number | string): Promise<number> {
     try {
       const unreadCount = await UserUnreadCount.findOne({ userId, chatId, isGroup });
+      let newCount = 1;
+
       if (unreadCount) {
         unreadCount.unreadCount += 1;
         if (messageId) unreadCount.lastMessageId = messageId as any;
         await unreadCount.save();
+        newCount = unreadCount.unreadCount;
       } else {
         await UserUnreadCount.create({ userId, chatId, isGroup, unreadCount: 1, lastMessageId: messageId as any });
+        newCount = 1;
       }
 
       // Emit real-time update to user's personal room
       websocketService.emitToUser(userId, 'unread-count-update', {
         chatId,
-        unreadCount: unreadCount.unreadCount + (created ? 0 : 1),
+        unreadCount: newCount,
         isGroup,
         lastMessageId: messageId
       });
@@ -89,7 +93,7 @@ class UnreadCountService {
 
       // Update unread count for each member
       for (const member of groupMembers) {
-        await this.incrementUnreadCount(member.userId, groupId, true, messageId);
+        await this.incrementUnreadCount(member.userId as any, groupId, true, messageId);
       }
 
       console.log(`📊 [UNREAD] Updated unread counts for ${groupMembers.length} group members in group ${groupId}`);
