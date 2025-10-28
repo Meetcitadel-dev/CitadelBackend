@@ -3,6 +3,7 @@ import paymentService from '../services/payment.service';
 import Event from '../models/event.model';
 import DinnerEvent from '../models/dinnerEvent.model';
 import Booking from '../models/booking.model';
+import DinnerBooking from '../models/dinnerBooking.model';
 import Payment from '../models/payment.model';
 import User from '../models/user.model';
 import phonepeService from '../services/phonepe.service';
@@ -265,30 +266,31 @@ class PaymentController {
 
       console.log('✅ Creating direct booking for user:', userId);
 
-      // Create booking directly (no payment service)
-      const booking = new Booking({
+      // Generate unique payment ID for cash payment
+      const paymentId = `CASH_${Date.now()}_${userId.substring(0, 8)}`;
+      console.log('✅ Generated payment ID:', paymentId);
+
+      // Create DinnerBooking directly (for dinner events)
+      const booking = await DinnerBooking.create({
         userId,
         eventId,
-        eventType,
-        amount,
-        currency,
-        bookingDate: new Date(bookingDate),
-        bookingTime,
-        location,
-        guests,
-        notes,
-        status: 'confirmed' // Immediately confirmed for cash
+        paymentId,
+        paymentStatus: 'pending', // Cash payments are pending until paid at venue
+        paymentAmount: amount,
+        paymentMethod: 'cash',
+        paymentGateway: 'cash',
+        bookingStatus: 'confirmed',
+        bookingDate: new Date()
       });
 
-      await booking.save();
-      console.log('✅ Booking created:', booking._id);
+      console.log('✅ DinnerBooking created:', booking._id);
 
       // Create payment record (without razorpay fields)
       const payment = new Payment({
         bookingId: booking._id?.toString() || '',
         amount,
         currency,
-        status: 'completed', // Immediately completed for cash
+        status: 'pending', // Cash payment is pending
         paymentMethod: 'cash',
         // Don't set razorpayOrderId, razorpayPaymentId - leave them null
       });
@@ -344,14 +346,15 @@ class PaymentController {
           bookingId: booking._id?.toString(),
           booking: {
             id: booking._id,
-            status: booking.status,
+            bookingStatus: booking.bookingStatus,
             eventId: booking.eventId,
-            amount: booking.amount
+            paymentAmount: booking.paymentAmount,
+            paymentStatus: booking.paymentStatus
           },
           payment: {
             id: payment._id,
             status: payment.status,
-            paymentMethod: payment.paymentMethod
+            paymentMethod: (payment as any).paymentMethod || 'cash'
           }
         }
       });

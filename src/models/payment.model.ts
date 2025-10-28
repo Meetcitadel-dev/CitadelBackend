@@ -6,6 +6,7 @@ export interface IPayment extends Document {
   amount: number;
   currency: string;
   status: 'pending' | 'completed' | 'failed';
+  paymentMethod?: 'cash' | 'razorpay' | 'phonepe';
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
@@ -42,6 +43,11 @@ const PaymentSchema = new Schema<IPayment>(
       enum: ['pending', 'completed', 'failed'],
       default: 'pending',
       index: true,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['cash', 'razorpay', 'phonepe'],
+      default: 'razorpay',
     },
 
     // ✅ Razorpay fields
