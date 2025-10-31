@@ -40,7 +40,7 @@ app.use(cookieParser());
 // CORS configuration using environment variables
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:5173']; // Default to development
+  : ['https://citadel-frontend-linp.vercel.app/']; // Default to development
 
 app.use(cors({ 
   origin: allowedOrigins,
