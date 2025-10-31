@@ -23,7 +23,10 @@ import dinnerEventsRoutes from './routes/dinnerEvents.routes';
 
 const app = express();
 
-app.use(helmet());
+// Helmet with permissive CORP for API usage
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 // Loosen CSP for images so CloudFront/UploadThing can load
 app.use(
   helmet.contentSecurityPolicy({
@@ -40,12 +43,24 @@ app.use(cookieParser());
 // CORS configuration using environment variables
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ['https://citadel-frontend-linp.vercel.app/']; // Default to development
+  : [
+    'https://citadel-frontend-linp.vercel.app/',
+    'http://localhost:5173/'
+  ]; // Default allowed origins when env is missing
 
-app.use(cors({ 
-  origin: allowedOrigins,
-  credentials: true 
-}));
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow non-browser or same-origin
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie'],
+};
+
+app.use(cors(corsOptions));
 
 
 // Test endpoint
