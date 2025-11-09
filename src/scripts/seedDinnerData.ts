@@ -184,6 +184,46 @@ async function seedDinnerData() {
       });
     }
 
+    // Add 2 events for next Friday
+    const daysUntilFriday = (5 - today.getDay() + 7) % 7 || 7;
+    const fridayDate = new Date(today);
+    fridayDate.setDate(today.getDate() + daysUntilFriday);
+    fridayDate.setHours(20, 0, 0, 0); // 8:00 PM
+
+    // First Friday event - New Delhi
+    dinnerEvents.push({
+      eventDate: new Date(fridayDate),
+      eventTime: '8:00 PM',
+      city: 'New Delhi',
+      area: 'Khan Market',
+      venue: 'Khan Chacha',
+      venueAddress: 'Khan Market, New Delhi',
+      venueDetails: 'Popular restaurant known for kebabs and North Indian cuisine',
+      maxAttendees: 6,
+      currentAttendees: Math.floor(Math.random() * 3),
+      attendeeIds: [],
+      bookingFee: 299,
+      status: 'upcoming',
+      groupChatCreated: false
+    });
+
+    // Second Friday event - Mumbai
+    dinnerEvents.push({
+      eventDate: new Date(fridayDate),
+      eventTime: '8:00 PM',
+      city: 'Mumbai',
+      area: 'Colaba',
+      venue: 'The Table',
+      venueAddress: 'Colaba, Mumbai',
+      venueDetails: 'Modern restaurant with global cuisine and craft cocktails',
+      maxAttendees: 6,
+      currentAttendees: Math.floor(Math.random() * 3),
+      attendeeIds: [],
+      bookingFee: 349,
+      status: 'upcoming',
+      groupChatCreated: false
+    });
+
     // Clear existing events
     await DinnerEvent.deleteMany({});
     console.log('🗑️  Cleared existing dinner events');

@@ -91,6 +91,15 @@ export const sendOtpController = async (req: Request, res: Response) => {
           message: 'Email not verified. Please complete email verification first.' 
         });
       }
+    } else {
+      // For signup flow, check if user already exists and is verified
+      const existingUser = await User.findOne({ email });
+      if (existingUser && existingUser.isEmailVerified) {
+        return res.status(409).json({ 
+          success: false, 
+          message: 'This email is already registered. Please use login instead.' 
+        });
+      }
     }
 
     const { otp, expiresIn } = await sendOtp(email);
