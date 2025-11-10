@@ -54,7 +54,9 @@ export const completeOnboarding = async (req: Request, res: Response) => {
       degree,
       year,
       gender,
-      isProfileComplete: true
+      isProfileComplete: true,
+      onboardingStep: null, // Clear onboarding step when complete
+      onboardingData: null // Clear onboarding data when complete
     };
 
     if (name) updateData.name = name;
@@ -108,6 +110,8 @@ export const getOnboardingStatus = async (req: Request, res: Response) => {
       success: true,
       data: {
         isProfileComplete: user.isProfileComplete,
+        onboardingStep: user.onboardingStep,
+        onboardingData: user.onboardingData,
         profile: user.isProfileComplete ? {
           name: user.name,
           universityId: user.universityId,
@@ -123,5 +127,44 @@ export const getOnboardingStatus = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error getting onboarding status:', error);
     res.status(500).json({ error: 'Failed to get onboarding status' });
+  }
+};
+
+export const saveOnboardingProgress = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { step, data } = req.body;
+
+    if (!step) {
+      return res.status(400).json({ error: 'Step is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update onboarding progress
+    user.onboardingStep = step;
+    if (data) {
+      user.onboardingData = { ...(user.onboardingData || {}), ...data };
+    }
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Onboarding progress saved',
+      data: {
+        step: user.onboardingStep,
+        onboardingData: user.onboardingData
+      }
+    });
+  } catch (error) {
+    console.error('Error saving onboarding progress:', error);
+    res.status(500).json({ error: 'Failed to save onboarding progress' });
   }
 }; 

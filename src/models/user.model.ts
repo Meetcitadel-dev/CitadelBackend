@@ -24,6 +24,8 @@ export interface IUser extends Document {
   hasCompletedQuiz: boolean;
   quizScore: number;
   quizCompletedAt: Date;
+  onboardingStep?: string;
+  onboardingData?: any;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -82,6 +84,12 @@ const UserSchema = new Schema<IUser>({
   },
   quizCompletedAt: {
     type: Date
+  },
+  onboardingStep: {
+    type: String
+  },
+  onboardingData: {
+    type: Schema.Types.Mixed
   }
 }, {
   timestamps: true,
