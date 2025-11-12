@@ -10,25 +10,18 @@ import { sendBookingConfirmationEmail } from '../services/bookingEmail.service';
 // Get upcoming dinner events based on user preferences
 export const getUpcomingEvents = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.id; // Optional - may be undefined if not authenticated
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized'
-      });
-    }
+    // Get city from query params or user preferences
+    let city = req.query.city as string;
 
-    // Get user preferences
-    const preferences = await DinnerPreferences.findOne({ userId });
-    
-    const city = preferences?.city || req.query.city as string;
-    
-    if (!city) {
-      return res.status(400).json({
-        success: false,
-        message: 'City is required'
-      });
+    if (!city && userId) {
+      // If logged in and no city specified, try to get from preferences
+      const preferences = await DinnerPreferences.findOne({ userId });
+      city = preferences?.city || 'New Delhi';
+    } else if (!city) {
+      // If not logged in and no city specified, use default
+      city = 'New Delhi';
     }
 
     // Get upcoming events for the city
@@ -40,13 +33,15 @@ export const getUpcomingEvents = async (req: Request, res: Response) => {
     .sort({ eventDate: 1 })
     .limit(10);
 
-    // Check which events user has already booked
-    const userBookings = await DinnerBooking.find({
-      userId,
-      bookingStatus: 'confirmed'
-    }).select('eventId');
-
-    const bookedEventIds = userBookings.map(b => b.eventId.toString());
+    // Check which events user has already booked (only if logged in)
+    let bookedEventIds: string[] = [];
+    if (userId) {
+      const userBookings = await DinnerBooking.find({
+        userId,
+        bookingStatus: 'confirmed'
+      }).select('eventId');
+      bookedEventIds = userBookings.map(b => b.eventId.toString());
+    }
 
     const eventsWithBookingStatus = events.map(event => ({
       id: event._id,

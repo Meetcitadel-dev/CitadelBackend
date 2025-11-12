@@ -14,12 +14,13 @@ function isUniversityEmail(email) {
 }
 // Validates if the email is a university email from a list of allowed domains
 function isValidUniversityEmail(email, allowedDomains) {
+    var _a;
     if (!email || !allowedDomains || allowedDomains.length === 0)
         return false;
     // Check if email is in whitelist first
     if (WHITELISTED_EMAILS.includes(email.toLowerCase())) {
         return true;
     }
-    const domain = email.split('@')[1]?.toLowerCase();
+    const domain = (_a = email.split('@')[1]) === null || _a === void 0 ? void 0 : _a.toLowerCase();
     return allowedDomains.map(d => d.toLowerCase()).includes(domain);
 }

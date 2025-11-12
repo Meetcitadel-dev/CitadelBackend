@@ -288,11 +288,11 @@ Building meaningful connections, one dinner at a time
             console.error('❌ Resend email error:', error);
             return false;
         }
-        console.log(`✅ Booking confirmation email sent to ${data.userEmail}:`, emailData?.id);
+        console.log(`✅ Booking confirmation email sent to ${data.userEmail}:`, emailData === null || emailData === void 0 ? void 0 : emailData.id);
         return true;
     }
     catch (err) {
-        console.error('❌ Error sending booking confirmation email:', err?.message || err);
+        console.error('❌ Error sending booking confirmation email:', (err === null || err === void 0 ? void 0 : err.message) || err);
         return false;
     }
 }

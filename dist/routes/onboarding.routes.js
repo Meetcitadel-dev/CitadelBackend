@@ -10,4 +10,6 @@ router.use(auth_middleware_1.authenticateToken);
 router.post('/onboarding', onboarding_controller_1.completeOnboarding);
 // Get onboarding status
 router.get('/onboarding/status', onboarding_controller_1.getOnboardingStatus);
+// Save onboarding progress
+router.post('/onboarding/progress', onboarding_controller_1.saveOnboardingProgress);
 exports.default = router;

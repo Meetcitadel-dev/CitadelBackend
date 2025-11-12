@@ -20,11 +20,12 @@ const s3_service_1 = require("../services/s3.service");
 const uploadthing_service_1 = require("../services/uploadthing.service");
 const Op = {}; // Placeholder for legacy Sequelize operators
 const uploadUserImage = async (req, res) => {
+    var _a;
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No image file provided' });
         }
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
@@ -92,8 +93,9 @@ const uploadUserImage = async (req, res) => {
 };
 exports.uploadUserImage = uploadUserImage;
 const getUserImages = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
@@ -146,8 +148,9 @@ const getUserImages = async (req, res) => {
 };
 exports.getUserImages = getUserImages;
 const assignImageToSlot = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { slot, userImageId } = req.body;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
@@ -179,8 +182,9 @@ const assignImageToSlot = async (req, res) => {
 };
 exports.assignImageToSlot = assignImageToSlot;
 const clearImageSlot = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const slot = parseInt(req.params.slot, 10);
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
@@ -201,8 +205,9 @@ const clearImageSlot = async (req, res) => {
 };
 exports.clearImageSlot = clearImageSlot;
 const deleteUserImage = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const imageId = parseInt(req.params.imageId);
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
@@ -235,8 +240,9 @@ const deleteUserImage = async (req, res) => {
 };
 exports.deleteUserImage = deleteUserImage;
 const getSignedUrl = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const imageId = parseInt(req.params.imageId);
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
@@ -278,8 +284,9 @@ const getSignedUrl = async (req, res) => {
 };
 exports.getSignedUrl = getSignedUrl;
 const getMyProfile = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
@@ -405,8 +412,9 @@ const getMyProfile = async (req, res) => {
 };
 exports.getMyProfile = getMyProfile;
 const testSignedUrl = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
@@ -475,8 +483,9 @@ const testSignedUrl = async (req, res) => {
 };
 exports.testSignedUrl = testSignedUrl;
 const updateProfile = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -576,7 +585,7 @@ const updateProfile = async (req, res) => {
         await user.update(updateData);
         // Fetch updated user with university data
         const updatedUser = await user_model_1.default.findByPk(userId);
-        const university = updatedUser?.universityId ? await university_model_1.default.findByPk(updatedUser.universityId) : null;
+        const university = (updatedUser === null || updatedUser === void 0 ? void 0 : updatedUser.universityId) ? await university_model_1.default.findByPk(updatedUser.universityId) : null;
         // Fetch user images
         const images = await userImage_model_1.default.findAll({
             where: { userId },
@@ -649,8 +658,9 @@ const updateProfile = async (req, res) => {
 exports.updateProfile = updateProfile;
 // Delete account functionality
 const deleteAccount = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({
                 success: false,

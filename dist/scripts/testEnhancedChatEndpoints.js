@@ -1,0 +1,92 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const axios_1 = __importDefault(require("axios"));
+async function testEnhancedChatEndpoints() {
+    var _a, _b, _c, _d, _e, _f, _g;
+    try {
+        console.log('🧪 Testing Enhanced Chat Endpoints...');
+        // Nisarg's token (user 30)
+        const nisargToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjMwLCJ1c2VybmFtZSI6Im5pc2FyZy5wYXRlbCIsInJvbGUiOiJVU0VSIiwiZW1haWwiOiJuaXNhcmcucGF0ZWxAbWFzdGVyc3VuaW9uLm9yZyIsImlhdCI6MTc1NDM5NTAxNywiZXhwIjoxNzU0ODI3MDE3fQ.LpUQaTFoOnRMqDze7eCxE5vtUe1v3pQal6lZLr7uhcU';
+        const headers = {
+            'Authorization': `Bearer ${nisargToken}`,
+            'Content-Type': 'application/json'
+        };
+        // Test 1: Get enhanced matched conversations
+        console.log('\n📝 Test 1: GET /api/v1/enhanced-chats/matches');
+        try {
+            const matchesResponse = await axios_1.default.get('http://localhost:3000/api/v1/enhanced-chats/matches', { headers });
+            console.log('Status:', matchesResponse.status);
+            console.log('Response:', JSON.stringify(matchesResponse.data, null, 2));
+        }
+        catch (error) {
+            console.error('❌ Enhanced matches endpoint failed:', ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+        }
+        // Test 2: Check chat history with user 15
+        console.log('\n📝 Test 2: GET /api/v1/enhanced-chats/chat-history/15');
+        try {
+            const chatHistoryResponse = await axios_1.default.get('http://localhost:3000/api/v1/enhanced-chats/chat-history/15', { headers });
+            console.log('Status:', chatHistoryResponse.status);
+            console.log('Response:', chatHistoryResponse.data);
+        }
+        catch (error) {
+            console.error('❌ Chat history endpoint failed:', ((_b = error.response) === null || _b === void 0 ? void 0 : _b.data) || error.message);
+        }
+        // Test 3: Send connection request (Case 3)
+        console.log('\n📝 Test 3: POST /api/v1/enhanced-chats/connection-request');
+        try {
+            const connectionRequestResponse = await axios_1.default.post('http://localhost:3000/api/v1/enhanced-chats/connection-request', {
+                targetUserId: 25
+            }, { headers });
+            console.log('Status:', connectionRequestResponse.status);
+            console.log('Response:', connectionRequestResponse.data);
+        }
+        catch (error) {
+            console.error('❌ Connection request endpoint failed:', ((_c = error.response) === null || _c === void 0 ? void 0 : _c.data) || error.message);
+        }
+        // Test 4: Dismiss match prompt
+        console.log('\n📝 Test 4: POST /api/v1/enhanced-chats/dismiss');
+        try {
+            const dismissResponse = await axios_1.default.post('http://localhost:3000/api/v1/enhanced-chats/dismiss', {
+                targetUserId: 15
+            }, { headers });
+            console.log('Status:', dismissResponse.status);
+            console.log('Response:', dismissResponse.data);
+        }
+        catch (error) {
+            console.error('❌ Dismiss endpoint failed:', ((_d = error.response) === null || _d === void 0 ? void 0 : _d.data) || error.message);
+        }
+        // Test 5: Move chat to active section
+        console.log('\n📝 Test 5: POST /api/v1/enhanced-chats/move-to-active');
+        try {
+            const moveToActiveResponse = await axios_1.default.post('http://localhost:3000/api/v1/enhanced-chats/move-to-active', {
+                targetUserId: 15
+            }, { headers });
+            console.log('Status:', moveToActiveResponse.status);
+            console.log('Response:', moveToActiveResponse.data);
+        }
+        catch (error) {
+            console.error('❌ Move to active endpoint failed:', ((_e = error.response) === null || _e === void 0 ? void 0 : _e.data) || error.message);
+        }
+        // Test 6: Send message (if conversation exists)
+        console.log('\n📝 Test 6: POST /api/v1/enhanced-chats/send-message');
+        try {
+            const sendMessageResponse = await axios_1.default.post('http://localhost:3000/api/v1/enhanced-chats/send-message', {
+                conversationId: '0d82c5c9-aa26-4119-9bd0-1bc62b671682', // Use existing conversation ID
+                text: 'Test message from enhanced chat system'
+            }, { headers });
+            console.log('Status:', sendMessageResponse.status);
+            console.log('Response:', sendMessageResponse.data);
+        }
+        catch (error) {
+            console.error('❌ Send message endpoint failed:', ((_f = error.response) === null || _f === void 0 ? void 0 : _f.data) || error.message);
+        }
+        console.log('\n✅ Enhanced chat endpoints test completed!');
+    }
+    catch (error) {
+        console.error('❌ Test failed:', ((_g = error.response) === null || _g === void 0 ? void 0 : _g.data) || error.message);
+    }
+}
+testEnhancedChatEndpoints();

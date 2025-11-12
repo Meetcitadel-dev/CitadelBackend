@@ -64,8 +64,9 @@ async function getSlot0ImageUrl(userId) {
 }
 // Get all notifications for a user
 const getNotifications = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -124,15 +125,18 @@ const getNotifications = async (req, res) => {
             matchGroups.get(match.mutualAdjective).push(match);
         });
         // Format connection requests with slot[0] profile image
-        const formattedConnectionRequests = await Promise.all(connectionRequests.map(async (request) => ({
-            id: request.id,
-            requesterId: request.requesterId,
-            requesterName: request.requester?.name || 'Unknown User',
-            requesterLocation: request.requester?.userUniversity?.name || 'Unknown University',
-            requesterProfileImage: await getSlot0ImageUrl(request.requesterId),
-            status: request.status,
-            createdAt: request.createdAt
-        })));
+        const formattedConnectionRequests = await Promise.all(connectionRequests.map(async (request) => {
+            var _a, _b, _c;
+            return ({
+                id: request.id,
+                requesterId: request.requesterId,
+                requesterName: ((_a = request.requester) === null || _a === void 0 ? void 0 : _a.name) || 'Unknown User',
+                requesterLocation: ((_c = (_b = request.requester) === null || _b === void 0 ? void 0 : _b.userUniversity) === null || _c === void 0 ? void 0 : _c.name) || 'Unknown University',
+                requesterProfileImage: await getSlot0ImageUrl(request.requesterId),
+                status: request.status,
+                createdAt: request.createdAt
+            });
+        }));
         // Format adjective notifications with slot[0] profile images for other users
         const formattedAdjectiveNotifications = await Promise.all(Array.from(matchGroups.entries()).map(async ([mutualAdjective, groupMatches]) => {
             const latestMatch = groupMatches[0];
@@ -178,8 +182,9 @@ const getNotifications = async (req, res) => {
 exports.getNotifications = getNotifications;
 // Handle connection request (accept/reject)
 const handleConnectionRequest = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { requestId, action } = req.body;
         if (!userId) {
             return res.status(401).json({
@@ -276,12 +281,12 @@ const handleConnectionRequest = async (req, res) => {
             const acceptData = {
                 connectionId: connection.id,
                 accepterId: userId,
-                accepterName: accepter?.name || 'Unknown User',
-                accepterUsername: accepter?.username,
+                accepterName: (accepter === null || accepter === void 0 ? void 0 : accepter.name) || 'Unknown User',
+                accepterUsername: accepter === null || accepter === void 0 ? void 0 : accepter.username,
                 accepterImage: accepterImageUrl,
                 requestId: connectionRequest.id,
                 status: 'connected',
-                message: `${accepter?.name || 'Someone'} accepted your connection request`
+                message: `${(accepter === null || accepter === void 0 ? void 0 : accepter.name) || 'Someone'} accepted your connection request`
             };
             websocket_service_1.default.emitConnectionRequestAccepted(Number(connectionRequest.requesterId), acceptData);
             console.log(`✅ Connection request accepted by ${userId} for requester ${connectionRequest.requesterId}`);
@@ -295,7 +300,7 @@ const handleConnectionRequest = async (req, res) => {
             const rejectData = {
                 requestId: connectionRequest.id,
                 rejecterId: userId,
-                rejecterName: rejecter?.name || 'Unknown User',
+                rejecterName: (rejecter === null || rejecter === void 0 ? void 0 : rejecter.name) || 'Unknown User',
                 status: 'rejected',
                 message: `Your connection request was declined`
             };
@@ -320,8 +325,9 @@ const handleConnectionRequest = async (req, res) => {
 exports.handleConnectionRequest = handleConnectionRequest;
 // Mark notification as read
 const markNotificationAsRead = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { notificationId } = req.params;
         const { notificationType } = req.body;
         if (!userId) {

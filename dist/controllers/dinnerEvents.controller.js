@@ -11,22 +11,19 @@ const user_model_1 = __importDefault(require("../models/user.model"));
 const bookingEmail_service_1 = require("../services/bookingEmail.service");
 // Get upcoming dinner events based on user preferences
 const getUpcomingEvents = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
-        if (!userId) {
-            return res.status(401).json({
-                success: false,
-                message: 'Unauthorized'
-            });
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id; // Optional - may be undefined if not authenticated
+        // Get city from query params or user preferences
+        let city = req.query.city;
+        if (!city && userId) {
+            // If logged in and no city specified, try to get from preferences
+            const preferences = await dinnerPreferences_model_1.default.findOne({ userId });
+            city = (preferences === null || preferences === void 0 ? void 0 : preferences.city) || 'New Delhi';
         }
-        // Get user preferences
-        const preferences = await dinnerPreferences_model_1.default.findOne({ userId });
-        const city = preferences?.city || req.query.city;
-        if (!city) {
-            return res.status(400).json({
-                success: false,
-                message: 'City is required'
-            });
+        else if (!city) {
+            // If not logged in and no city specified, use default
+            city = 'New Delhi';
         }
         // Get upcoming events for the city
         const events = await dinnerEvent_model_1.default.find({
@@ -36,12 +33,15 @@ const getUpcomingEvents = async (req, res) => {
         })
             .sort({ eventDate: 1 })
             .limit(10);
-        // Check which events user has already booked
-        const userBookings = await dinnerBooking_model_1.default.find({
-            userId,
-            bookingStatus: 'confirmed'
-        }).select('eventId');
-        const bookedEventIds = userBookings.map(b => b.eventId.toString());
+        // Check which events user has already booked (only if logged in)
+        let bookedEventIds = [];
+        if (userId) {
+            const userBookings = await dinnerBooking_model_1.default.find({
+                userId,
+                bookingStatus: 'confirmed'
+            }).select('eventId');
+            bookedEventIds = userBookings.map(b => b.eventId.toString());
+        }
         const eventsWithBookingStatus = events.map(event => ({
             id: event._id,
             eventDate: event.eventDate,
@@ -75,9 +75,10 @@ const getUpcomingEvents = async (req, res) => {
 exports.getUpcomingEvents = getUpcomingEvents;
 // Get event details
 const getEventDetails = async (req, res) => {
+    var _a;
     try {
         const { eventId } = req.params;
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const event = await dinnerEvent_model_1.default.findById(eventId);
         if (!event) {
             return res.status(404).json({
@@ -128,8 +129,9 @@ const getEventDetails = async (req, res) => {
 exports.getEventDetails = getEventDetails;
 // Create a new booking (after payment)
 const createBooking = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { eventId, paymentId, paymentAmount, paymentMethod, paymentGateway, paymentStatus } = req.body;
         if (!userId) {
             return res.status(401).json({
@@ -245,8 +247,9 @@ const createBooking = async (req, res) => {
 exports.createBooking = createBooking;
 // Get user's bookings
 const getUserBookings = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { type } = req.query; // 'upcoming' or 'past'
         if (!userId) {
             return res.status(401).json({

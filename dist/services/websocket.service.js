@@ -58,8 +58,9 @@ class WebSocketService {
             }
         });
         this.io.use(async (socket, next) => {
+            var _a;
             try {
-                const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+                const token = socket.handshake.auth.token || ((_a = socket.handshake.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace('Bearer ', ''));
                 console.log('🔐 WebSocket auth - Token received:', !!token);
                 if (!token) {
                     console.log('❌ WebSocket auth - No token provided');

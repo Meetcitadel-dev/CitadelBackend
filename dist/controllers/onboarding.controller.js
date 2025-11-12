@@ -3,12 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOnboardingStatus = exports.completeOnboarding = void 0;
+exports.saveOnboardingProgress = exports.getOnboardingStatus = exports.completeOnboarding = void 0;
 const user_model_1 = __importDefault(require("../models/user.model"));
 const userProfile_controller_1 = require("./userProfile.controller");
 const completeOnboarding = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
@@ -42,7 +43,9 @@ const completeOnboarding = async (req, res) => {
             degree,
             year,
             gender,
-            isProfileComplete: true
+            isProfileComplete: true,
+            onboardingStep: null, // Clear onboarding step when complete
+            onboardingData: null // Clear onboarding data when complete
         };
         if (name)
             updateData.name = name;
@@ -84,8 +87,9 @@ const completeOnboarding = async (req, res) => {
 };
 exports.completeOnboarding = completeOnboarding;
 const getOnboardingStatus = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
@@ -97,6 +101,8 @@ const getOnboardingStatus = async (req, res) => {
             success: true,
             data: {
                 isProfileComplete: user.isProfileComplete,
+                onboardingStep: user.onboardingStep,
+                onboardingData: user.onboardingData,
                 profile: user.isProfileComplete ? {
                     name: user.name,
                     universityId: user.universityId,
@@ -116,3 +122,39 @@ const getOnboardingStatus = async (req, res) => {
     }
 };
 exports.getOnboardingStatus = getOnboardingStatus;
+const saveOnboardingProgress = async (req, res) => {
+    var _a;
+    try {
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+        const { step, data } = req.body;
+        if (!step) {
+            return res.status(400).json({ error: 'Step is required' });
+        }
+        const user = await user_model_1.default.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        // Update onboarding progress
+        user.onboardingStep = step;
+        if (data) {
+            user.onboardingData = { ...(user.onboardingData || {}), ...data };
+        }
+        await user.save();
+        res.json({
+            success: true,
+            message: 'Onboarding progress saved',
+            data: {
+                step: user.onboardingStep,
+                onboardingData: user.onboardingData
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error saving onboarding progress:', error);
+        res.status(500).json({ error: 'Failed to save onboarding progress' });
+    }
+};
+exports.saveOnboardingProgress = saveOnboardingProgress;

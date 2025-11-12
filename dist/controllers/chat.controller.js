@@ -96,7 +96,7 @@ class ChatController {
                 }
                 const profileImage = await getSlot0ImageUrl(otherUser._id);
                 return {
-                    id: conversation?._id || null,
+                    id: (conversation === null || conversation === void 0 ? void 0 : conversation._id) || null,
                     userId: otherUser._id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
                     profileImage,
@@ -221,7 +221,7 @@ class ChatController {
                 }
                 const profileImage = await getSlot0ImageUrl(otherUser._id);
                 return {
-                    id: conversation?._id || null,
+                    id: (conversation === null || conversation === void 0 ? void 0 : conversation._id) || null,
                     userId: otherUser._id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
                     profileImage,

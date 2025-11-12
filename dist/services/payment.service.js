@@ -15,6 +15,7 @@ const razorpay = new razorpay_1.default({
 });
 class PaymentService {
     async createOrder(bookingData) {
+        var _a, _b;
         try {
             console.log('Creating order with data:', bookingData);
             // Create booking record
@@ -39,7 +40,7 @@ class PaymentService {
                 currency: bookingData.currency,
                 receipt: `booking_${booking._id}`,
                 notes: {
-                    bookingId: booking._id?.toString() || '',
+                    bookingId: ((_a = booking._id) === null || _a === void 0 ? void 0 : _a.toString()) || '',
                     userId: bookingData.userId,
                     eventId: bookingData.eventId,
                     eventType: bookingData.eventType,
@@ -51,7 +52,7 @@ class PaymentService {
             console.log('Razorpay order created:', razorpayOrder.id);
             // Create payment record
             const payment = new payment_model_1.default({
-                bookingId: booking._id?.toString() || '',
+                bookingId: ((_b = booking._id) === null || _b === void 0 ? void 0 : _b.toString()) || '',
                 razorpayOrderId: razorpayOrder.id,
                 amount: bookingData.amount,
                 currency: bookingData.currency,
@@ -80,6 +81,7 @@ class PaymentService {
         }
     }
     async verifyPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature) {
+        var _a, _b;
         try {
             console.log('Verifying payment:', { razorpayOrderId, razorpayPaymentId });
             // Find payment record by Razorpay order ID
@@ -130,8 +132,8 @@ class PaymentService {
             return {
                 success: true,
                 message: 'Payment verified successfully',
-                bookingId: booking?._id?.toString() || '',
-                paymentId: payment._id?.toString() || ''
+                bookingId: ((_a = booking === null || booking === void 0 ? void 0 : booking._id) === null || _a === void 0 ? void 0 : _a.toString()) || '',
+                paymentId: ((_b = payment._id) === null || _b === void 0 ? void 0 : _b.toString()) || ''
             };
         }
         catch (error) {
@@ -140,6 +142,7 @@ class PaymentService {
         }
     }
     async createCashPayment(bookingData) {
+        var _a;
         try {
             console.log('Creating cash payment booking:', bookingData);
             // Create booking record
@@ -160,7 +163,7 @@ class PaymentService {
             console.log('Cash booking created:', booking._id);
             // Create payment record with cash status
             const payment = new payment_model_1.default({
-                bookingId: booking._id?.toString() || '',
+                bookingId: ((_a = booking._id) === null || _a === void 0 ? void 0 : _a.toString()) || '',
                 amount: bookingData.amount,
                 currency: bookingData.currency,
                 status: 'completed', // Cash payment is immediately completed
@@ -216,7 +219,8 @@ class PaymentService {
         try {
             const bookings = await booking_model_1.default.find({ userId }).sort({ createdAt: -1 });
             const bookingsWithDetails = await Promise.all(bookings.map(async (booking) => {
-                const payment = await payment_model_1.default.findOne({ bookingId: booking._id?.toString() || '' });
+                var _a;
+                const payment = await payment_model_1.default.findOne({ bookingId: ((_a = booking._id) === null || _a === void 0 ? void 0 : _a.toString()) || '' });
                 const event = await event_model_1.default.findById(booking.eventId);
                 return {
                     booking,

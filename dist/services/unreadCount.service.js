@@ -34,7 +34,7 @@ class UnreadCountService {
                 lastMessageId: messageId
             });
             const latest = await userUnreadCount_model_1.default.findOne({ userId, chatId, isGroup });
-            return latest?.unreadCount || 0;
+            return (latest === null || latest === void 0 ? void 0 : latest.unreadCount) || 0;
         }
         catch (error) {
             console.error('Error incrementing unread count:', error);
@@ -65,7 +65,7 @@ class UnreadCountService {
     async getUnreadCount(userId, chatId, isGroup) {
         try {
             const unreadCount = await userUnreadCount_model_1.default.findOne({ userId, chatId, isGroup });
-            return unreadCount?.unreadCount || 0;
+            return (unreadCount === null || unreadCount === void 0 ? void 0 : unreadCount.unreadCount) || 0;
         }
         catch (error) {
             console.error('Error getting unread count:', error);

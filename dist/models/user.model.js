@@ -88,6 +88,12 @@ const UserSchema = new mongoose_1.Schema({
     },
     quizCompletedAt: {
         type: Date
+    },
+    onboardingStep: {
+        type: String
+    },
+    onboardingData: {
+        type: mongoose_1.Schema.Types.Mixed
     }
 }, {
     timestamps: true,

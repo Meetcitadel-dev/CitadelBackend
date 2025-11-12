@@ -18,11 +18,11 @@ async function sendEmail(to, subject, text) {
             console.error('Resend email error:', error);
             throw new Error(`Email sending failed: ${error.message}`);
         }
-        console.log(`OTP sent via Resend to ${to}:`, data?.id);
+        console.log(`OTP sent via Resend to ${to}:`, data === null || data === void 0 ? void 0 : data.id);
         return true;
     }
     catch (err) {
-        console.error('Resend email error:', err?.message || err);
+        console.error('Resend email error:', (err === null || err === void 0 ? void 0 : err.message) || err);
         throw new Error('EMAIL_SEND_FAILED');
     }
 }

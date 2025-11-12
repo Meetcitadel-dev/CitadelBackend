@@ -235,7 +235,7 @@ const selectAdjective = async (req, res) => {
             matched,
             matchData,
             isUpdate,
-            previousAdjective: isUpdate ? existingSelection?.adjective : null
+            previousAdjective: isUpdate ? existingSelection === null || existingSelection === void 0 ? void 0 : existingSelection.adjective : null
         });
     }
     catch (error) {
@@ -283,7 +283,7 @@ const getMatchState = async (req, res) => {
                 mutualAdjective: match.mutualAdjective,
                 isConnected: !!connection, // Use actual connection status
                 matchTimestamp: match.matchTimestamp,
-                connectionTimestamp: connection?.createdAt || null,
+                connectionTimestamp: (connection === null || connection === void 0 ? void 0 : connection.createdAt) || null,
                 iceBreakingPrompt: match.iceBreakingPrompt
             },
             message: 'Match state retrieved successfully'
@@ -469,9 +469,9 @@ const getAvailableAdjectives = async (req, res) => {
             adjectives,
             sessionId: finalSessionId,
             hasTargetUserSelection: !!targetUserSelection,
-            targetUserSelection: targetUserSelection?.adjective || null,
+            targetUserSelection: (targetUserSelection === null || targetUserSelection === void 0 ? void 0 : targetUserSelection.adjective) || null,
             hasCurrentUserSelection: !!currentUserSelection,
-            currentUserSelection: currentUserSelection?.adjective || null
+            currentUserSelection: (currentUserSelection === null || currentUserSelection === void 0 ? void 0 : currentUserSelection.adjective) || null
         });
     }
     catch (error) {

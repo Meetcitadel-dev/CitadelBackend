@@ -59,12 +59,13 @@ class GroupChatController {
                 ]
             });
             const formattedConnections = connections.map((connection) => {
+                var _a, _b;
                 const otherUser = connection.userId1 === userId ? connection.connectionUser2 : connection.connectionUser1;
                 return {
                     id: otherUser.id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
                     location: 'IIT Delhi', // TODO: Add actual location from user profile
-                    avatar: otherUser.images?.[0]?.cloudfrontUrl || null
+                    avatar: ((_b = (_a = otherUser.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.cloudfrontUrl) || null
                 };
             });
             console.log('✅ [GROUP] Returning connections:', formattedConnections.length);
@@ -132,7 +133,7 @@ class GroupChatController {
             // Create group
             const group = await group_model_1.default.create({
                 name: name.trim(),
-                description: description?.trim() || null,
+                description: (description === null || description === void 0 ? void 0 : description.trim()) || null,
                 createdBy: userId
             });
             // Add creator as admin
@@ -177,14 +178,17 @@ class GroupChatController {
                 name: groupWithMembers.name,
                 description: groupWithMembers.description,
                 avatar: groupWithMembers.avatarUrl,
-                members: groupWithMembers.members.map((member) => ({
-                    id: member.member.id,
-                    name: member.member.name || member.member.username || 'Unknown User',
-                    location: 'IIT Delhi', // TODO: Add actual location
-                    avatar: member.member.images?.[0]?.cloudfrontUrl || null,
-                    isAdmin: member.isAdmin,
-                    joinedAt: member.joinedAt
-                })),
+                members: groupWithMembers.members.map((member) => {
+                    var _a, _b;
+                    return ({
+                        id: member.member.id,
+                        name: member.member.name || member.member.username || 'Unknown User',
+                        location: 'IIT Delhi', // TODO: Add actual location
+                        avatar: ((_b = (_a = member.member.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.cloudfrontUrl) || null,
+                        isAdmin: member.isAdmin,
+                        joinedAt: member.joinedAt
+                    });
+                }),
                 memberCount: groupWithMembers.members.length,
                 createdAt: groupWithMembers.createdAt,
                 updatedAt: groupWithMembers.updatedAt,
@@ -254,6 +258,7 @@ class GroupChatController {
                 ]
             });
             const groups = await Promise.all(groupMemberships.map(async (membership) => {
+                var _a, _b;
                 const group = membership.group;
                 // Get last message
                 const lastMessage = await groupMessage_model_1.default.findOne({
@@ -271,20 +276,23 @@ class GroupChatController {
                 const unreadCount = await unreadCount_service_1.default.getUnreadCount(userId, group.id, true);
                 // Check if user is admin
                 const userMembership = group.members.find((m) => m.userId === userId);
-                const isAdmin = userMembership?.isAdmin || false;
+                const isAdmin = (userMembership === null || userMembership === void 0 ? void 0 : userMembership.isAdmin) || false;
                 return {
                     id: group.id,
                     name: group.name,
                     description: group.description,
                     avatar: group.avatarUrl,
-                    members: group.members.map((member) => ({
-                        id: member.member.id,
-                        name: member.member.name || member.member.username || 'Unknown User',
-                        location: 'IIT Delhi', // TODO: Add actual location
-                        avatar: member.member.images?.[0]?.cloudfrontUrl || null,
-                        isAdmin: member.isAdmin,
-                        joinedAt: member.joinedAt
-                    })),
+                    members: group.members.map((member) => {
+                        var _a, _b;
+                        return ({
+                            id: member.member.id,
+                            name: member.member.name || member.member.username || 'Unknown User',
+                            location: 'IIT Delhi', // TODO: Add actual location
+                            avatar: ((_b = (_a = member.member.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.cloudfrontUrl) || null,
+                            isAdmin: member.isAdmin,
+                            joinedAt: member.joinedAt
+                        });
+                    }),
                     memberCount: group.members.length,
                     createdAt: group.createdAt,
                     updatedAt: group.updatedAt,
@@ -292,7 +300,7 @@ class GroupChatController {
                         id: lastMessage.id,
                         content: lastMessage.content,
                         senderId: lastMessage.senderId,
-                        senderName: lastMessage.sender?.name || lastMessage.sender?.username || 'Unknown User',
+                        senderName: ((_a = lastMessage.sender) === null || _a === void 0 ? void 0 : _a.name) || ((_b = lastMessage.sender) === null || _b === void 0 ? void 0 : _b.username) || 'Unknown User',
                         timestamp: lastMessage.createdAt
                     } : null,
                     unreadCount,
@@ -315,6 +323,7 @@ class GroupChatController {
     }
     // Get specific group details
     async getGroup(req, res) {
+        var _a, _b;
         try {
             const userId = req.user.id;
             const { groupId } = req.params;
@@ -383,14 +392,17 @@ class GroupChatController {
                 name: group.name,
                 description: group.description,
                 avatar: group.avatarUrl,
-                members: group.members.map((member) => ({
-                    id: member.member.id,
-                    name: member.member.name || member.member.username || 'Unknown User',
-                    location: 'IIT Delhi', // TODO: Add actual location
-                    avatar: member.member.images?.[0]?.cloudfrontUrl || null,
-                    isAdmin: member.isAdmin,
-                    joinedAt: member.joinedAt
-                })),
+                members: group.members.map((member) => {
+                    var _a, _b;
+                    return ({
+                        id: member.member.id,
+                        name: member.member.name || member.member.username || 'Unknown User',
+                        location: 'IIT Delhi', // TODO: Add actual location
+                        avatar: ((_b = (_a = member.member.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.cloudfrontUrl) || null,
+                        isAdmin: member.isAdmin,
+                        joinedAt: member.joinedAt
+                    });
+                }),
                 memberCount: group.members.length,
                 createdAt: group.createdAt,
                 updatedAt: group.updatedAt,
@@ -398,7 +410,7 @@ class GroupChatController {
                     id: lastMessage.id,
                     content: lastMessage.content,
                     senderId: lastMessage.senderId,
-                    senderName: lastMessage.sender?.name || lastMessage.sender?.username || 'Unknown User',
+                    senderName: ((_a = lastMessage.sender) === null || _a === void 0 ? void 0 : _a.name) || ((_b = lastMessage.sender) === null || _b === void 0 ? void 0 : _b.username) || 'Unknown User',
                     timestamp: lastMessage.createdAt
                 } : null,
                 unreadCount,
@@ -457,7 +469,7 @@ class GroupChatController {
                 group.name = name.trim();
             }
             if (description !== undefined) {
-                group.description = description?.trim() || null;
+                group.description = (description === null || description === void 0 ? void 0 : description.trim()) || null;
             }
             await group.save();
             // Update members if provided
@@ -508,14 +520,17 @@ class GroupChatController {
                 description: updatedGroupWithMembers.description,
                 avatarUrl: updatedGroupWithMembers.avatarUrl,
                 memberCount: updatedGroupWithMembers.members.length,
-                members: updatedGroupWithMembers.members.map((member) => ({
-                    id: member.member.id,
-                    name: member.member.name || member.member.username || 'Unknown User',
-                    location: 'IIT Delhi', // TODO: Add actual location
-                    avatar: member.member.images?.[0]?.cloudfrontUrl || null,
-                    isAdmin: member.isAdmin,
-                    joinedAt: member.joinedAt
-                })),
+                members: updatedGroupWithMembers.members.map((member) => {
+                    var _a, _b;
+                    return ({
+                        id: member.member.id,
+                        name: member.member.name || member.member.username || 'Unknown User',
+                        location: 'IIT Delhi', // TODO: Add actual location
+                        avatar: ((_b = (_a = member.member.images) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.cloudfrontUrl) || null,
+                        isAdmin: member.isAdmin,
+                        joinedAt: member.joinedAt
+                    });
+                }),
                 createdAt: updatedGroupWithMembers.createdAt,
                 updatedAt: updatedGroupWithMembers.updatedAt,
                 isAdmin: membership.isAdmin // Show actual admin status
@@ -802,17 +817,20 @@ class GroupChatController {
                     }
                 ]
             });
-            const formattedMessages = messages.map((msg) => ({
-                id: msg.id,
-                groupId: msg.groupId,
-                senderId: msg.senderId,
-                senderName: msg.sender?.name || msg.sender?.username || 'Unknown User',
-                senderAvatar: msg.sender?.images?.[0]?.cloudfrontUrl || null,
-                content: msg.content,
-                timestamp: msg.createdAt,
-                isEdited: msg.isEdited,
-                editedAt: msg.editedAt
-            }));
+            const formattedMessages = messages.map((msg) => {
+                var _a, _b, _c, _d, _e;
+                return ({
+                    id: msg.id,
+                    groupId: msg.groupId,
+                    senderId: msg.senderId,
+                    senderName: ((_a = msg.sender) === null || _a === void 0 ? void 0 : _a.name) || ((_b = msg.sender) === null || _b === void 0 ? void 0 : _b.username) || 'Unknown User',
+                    senderAvatar: ((_e = (_d = (_c = msg.sender) === null || _c === void 0 ? void 0 : _c.images) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.cloudfrontUrl) || null,
+                    content: msg.content,
+                    timestamp: msg.createdAt,
+                    isEdited: msg.isEdited,
+                    editedAt: msg.editedAt
+                });
+            });
             res.json({
                 success: true,
                 messages: formattedMessages
@@ -828,6 +846,7 @@ class GroupChatController {
     }
     // Send message to group
     async sendGroupMessage(req, res) {
+        var _a, _b, _c, _d, _e;
         try {
             const userId = req.user.id;
             const { groupId } = req.params;
@@ -889,8 +908,8 @@ class GroupChatController {
                 id: messageWithSender.id,
                 groupId: messageWithSender.groupId,
                 senderId: messageWithSender.senderId,
-                senderName: messageWithSender.sender?.name || messageWithSender.sender?.username || 'Unknown User',
-                senderAvatar: messageWithSender.sender?.images?.[0]?.cloudfrontUrl || null,
+                senderName: ((_a = messageWithSender.sender) === null || _a === void 0 ? void 0 : _a.name) || ((_b = messageWithSender.sender) === null || _b === void 0 ? void 0 : _b.username) || 'Unknown User',
+                senderAvatar: ((_e = (_d = (_c = messageWithSender.sender) === null || _c === void 0 ? void 0 : _c.images) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.cloudfrontUrl) || null,
                 content: messageWithSender.content,
                 timestamp: messageWithSender.createdAt,
                 isEdited: messageWithSender.isEdited,

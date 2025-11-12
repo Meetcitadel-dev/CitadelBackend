@@ -51,6 +51,7 @@ const MATCHING_CRITERIA = {
 };
 // Calculate match score between two users
 const calculateMatchScore = (user1, user2) => {
+    var _a, _b, _c, _d, _e, _f;
     let score = 0;
     // Same college + same year + same degree (Score: 1.0)
     if (user1.universityId === user2.universityId &&
@@ -68,18 +69,18 @@ const calculateMatchScore = (user1, user2) => {
         score = 0.4;
     }
     // Same city + same degree + same year (Score: 0.3)
-    else if (user1.userUniversity?.country === user2.userUniversity?.country &&
+    else if (((_a = user1.userUniversity) === null || _a === void 0 ? void 0 : _a.country) === ((_b = user2.userUniversity) === null || _b === void 0 ? void 0 : _b.country) &&
         user1.degree === user2.degree &&
         user1.year === user2.year) {
         score = 0.3;
     }
     // Same city + same year (Score: 0.2)
-    else if (user1.userUniversity?.country === user2.userUniversity?.country &&
+    else if (((_c = user1.userUniversity) === null || _c === void 0 ? void 0 : _c.country) === ((_d = user2.userUniversity) === null || _d === void 0 ? void 0 : _d.country) &&
         user1.year === user2.year) {
         score = 0.2;
     }
     // Same city (Score: 0.1)
-    else if (user1.userUniversity?.country === user2.userUniversity?.country) {
+    else if (((_e = user1.userUniversity) === null || _e === void 0 ? void 0 : _e.country) === ((_f = user2.userUniversity) === null || _f === void 0 ? void 0 : _f.country)) {
         score = 0.1;
     }
     return score;
@@ -175,6 +176,7 @@ const regenerateImageUrls = async (images) => {
 };
 // Helper function to get slot-organized images for a user
 const getSlotOrganizedImages = async (userId) => {
+    var _a, _b, _c, _d;
     try {
         // Fetch slot mappings and resolve images in slot order (0..4)
         const slotMappings = await userImageSlot_model_1.default.findAll({
@@ -239,8 +241,8 @@ const getSlotOrganizedImages = async (userId) => {
             .filter(slot => slot.image !== null)
             .map(slot => slot.image.cloudfrontUrl);
         // Use slot[0] as profile image, fallback to first available slot
-        const profileImage = slots[0]?.image?.cloudfrontUrl ||
-            slots.find(slot => slot.image !== null)?.image?.cloudfrontUrl ||
+        const profileImage = ((_b = (_a = slots[0]) === null || _a === void 0 ? void 0 : _a.image) === null || _b === void 0 ? void 0 : _b.cloudfrontUrl) ||
+            ((_d = (_c = slots.find(slot => slot.image !== null)) === null || _c === void 0 ? void 0 : _c.image) === null || _d === void 0 ? void 0 : _d.cloudfrontUrl) ||
             null;
         return {
             profileImage,
@@ -646,13 +648,13 @@ const manageConnection = async (req, res) => {
                     const requestData = {
                         id: connectionState.id,
                         requesterId: currentUserId,
-                        requesterName: requester?.name || 'Unknown User',
-                        requesterUsername: requester?.username,
+                        requesterName: (requester === null || requester === void 0 ? void 0 : requester.name) || 'Unknown User',
+                        requesterUsername: requester === null || requester === void 0 ? void 0 : requester.username,
                         requesterImage: requesterImages.profileImage,
                         targetId: targetUserId,
                         status: 'pending',
                         createdAt: connectionState.createdAt,
-                        message: `${requester?.name || 'Someone'} sent you a connection request`
+                        message: `${(requester === null || requester === void 0 ? void 0 : requester.name) || 'Someone'} sent you a connection request`
                     };
                     websocket_service_1.default.emitConnectionRequest(targetUserId, requestData);
                     console.log(`🔗 Connection request sent from ${currentUserId} to ${targetUserId}`);
@@ -721,12 +723,12 @@ const manageConnection = async (req, res) => {
                 const acceptData = {
                     connectionId: newConnection.id,
                     accepterId: currentUserId,
-                    accepterName: accepter?.name || 'Unknown User',
-                    accepterUsername: accepter?.username,
+                    accepterName: (accepter === null || accepter === void 0 ? void 0 : accepter.name) || 'Unknown User',
+                    accepterUsername: accepter === null || accepter === void 0 ? void 0 : accepter.username,
                     accepterImage: accepterImages.profileImage,
                     requestId: request.id,
                     status: 'connected',
-                    message: `${accepter?.name || 'Someone'} accepted your connection request`
+                    message: `${(accepter === null || accepter === void 0 ? void 0 : accepter.name) || 'Someone'} accepted your connection request`
                 };
                 websocket_service_1.default.emitConnectionRequestAccepted(targetUserId, acceptData);
                 console.log(`✅ Connection request accepted by ${currentUserId} for requester ${targetUserId}`);
@@ -754,7 +756,7 @@ const manageConnection = async (req, res) => {
                 const rejectData = {
                     requestId: rejectRequest.id,
                     rejecterId: currentUserId,
-                    rejecterName: rejecter?.name || 'Unknown User',
+                    rejecterName: (rejecter === null || rejecter === void 0 ? void 0 : rejecter.name) || 'Unknown User',
                     status: 'rejected',
                     message: `Your connection request was declined`
                 };
@@ -785,9 +787,9 @@ const manageConnection = async (req, res) => {
                 const removeData = {
                     connectionId: existingConnection.id,
                     removerId: currentUserId,
-                    removerName: remover?.name || 'Unknown User',
+                    removerName: (remover === null || remover === void 0 ? void 0 : remover.name) || 'Unknown User',
                     targetId: targetUserId,
-                    message: `${remover?.name || 'Someone'} removed the connection`
+                    message: `${(remover === null || remover === void 0 ? void 0 : remover.name) || 'Someone'} removed the connection`
                 };
                 websocket_service_1.default.emitConnectionRemoved(targetUserId, removeData);
                 console.log(`🗑️ Connection removed by ${currentUserId} with user ${targetUserId}`);

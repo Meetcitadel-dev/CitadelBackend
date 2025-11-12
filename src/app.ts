@@ -23,6 +23,7 @@ import paymentRoutes from './routes/payment.routes';
 import quizRoutes from './routes/quiz.routes';
 import dinnerPreferencesRoutes from './routes/dinnerPreferences.routes';
 import dinnerEventsRoutes from './routes/dinnerEvents.routes';
+import eventManagementRoutes from './routes/eventManagement.routes';
 
 const app = express();
 
@@ -118,6 +119,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/v1/quiz', quizRoutes);
 app.use('/api/v1/dinner-preferences', dinnerPreferencesRoutes);
 app.use('/api/v1/dinner-events', dinnerEventsRoutes);
+app.use('/api/v1/event-management', eventManagementRoutes);
 
 /* ---------------------------- ERROR HANDLING ------------------------------ */
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

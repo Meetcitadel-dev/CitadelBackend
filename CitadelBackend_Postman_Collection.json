@@ -1672,6 +1672,170 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "🎯 Event Management (Admin)",
+      "item": [
+        {
+          "name": "Get All Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/event-management?status=&city=&startDate=&endDate=&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "event-management"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Filter by status: upcoming, full, completed, cancelled"
+                },
+                {
+                  "key": "city",
+                  "value": "",
+                  "description": "Filter by city name"
+                },
+                {
+                  "key": "startDate",
+                  "value": "",
+                  "description": "Filter events from this date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "endDate",
+                  "value": "",
+                  "description": "Filter events until this date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for pagination"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Number of events per page"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventDate\": \"2024-12-25\",\n  \"eventTime\": \"8:00 PM\",\n  \"city\": \"New Delhi\",\n  \"area\": \"Connaught Place\",\n  \"venue\": \"The Imperial Restaurant\",\n  \"venueAddress\": \"Janpath, Connaught Place, New Delhi\",\n  \"venueDetails\": \"Fine dining restaurant with rooftop seating\",\n  \"maxAttendees\": 6,\n  \"bookingFee\": 500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/event-management",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "event-management"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventDate\": \"2024-12-26\",\n  \"eventTime\": \"9:00 PM\",\n  \"city\": \"Mumbai\",\n  \"area\": \"Bandra\",\n  \"venue\": \"Olive Bar & Kitchen\",\n  \"venueAddress\": \"14, Union Park, Khar, Mumbai\",\n  \"venueDetails\": \"Mediterranean cuisine with garden seating\",\n  \"maxAttendees\": 8,\n  \"bookingFee\": 600,\n  \"status\": \"upcoming\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/event-management/:eventId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "event-management", ":eventId"],
+              "variable": [
+                {
+                  "key": "eventId",
+                  "value": "event_id_here",
+                  "description": "Event ID to update"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/event-management/:eventId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "event-management", ":eventId"],
+              "variable": [
+                {
+                  "key": "eventId",
+                  "value": "event_id_here",
+                  "description": "Event ID to delete"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Event Attendees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/event-management/:eventId/attendees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "event-management", ":eventId", "attendees"],
+              "variable": [
+                {
+                  "key": "eventId",
+                  "value": "event_id_here",
+                  "description": "Event ID to get attendees for"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [

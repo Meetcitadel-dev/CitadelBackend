@@ -89,6 +89,16 @@ const sendOtpController = async (req, res) => {
                 });
             }
         }
+        else {
+            // For signup flow, check if user already exists and is verified
+            const existingUser = await user_model_1.default.findOne({ email });
+            if (existingUser && existingUser.isEmailVerified) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'This email is already registered. Please use login instead.'
+                });
+            }
+        }
         const { otp, expiresIn } = await (0, otp_service_1.sendOtp)(email);
         await (0, email_nodemailer_1.sendEmail)(email, 'Your OTP Code', `Your OTP is: ${otp}`);
         // Only upsert user for signup flow, not for login
@@ -98,7 +108,7 @@ const sendOtpController = async (req, res) => {
         return res.json({ success: true, message: 'OTP sent successfully', expiresIn });
     }
     catch (err) {
-        const message = err?.message || 'Unknown error';
+        const message = (err === null || err === void 0 ? void 0 : err.message) || 'Unknown error';
         const isRateLimit = message.includes('recently sent') || message.includes('Maximum OTP attempts');
         const status = isRateLimit ? 429 : 500;
         return res.status(status).json({ success: false, message: isRateLimit ? message : 'Failed to send OTP' });
@@ -183,8 +193,9 @@ const verifyOtpController = async (req, res) => {
 };
 exports.verifyOtpController = verifyOtpController;
 const refreshTokenController = async (req, res) => {
+    var _a;
     // Prefer cookie; fallback to body for backward compatibility
-    const rtFromCookie = req.cookies?.refresh_token;
+    const rtFromCookie = (_a = req.cookies) === null || _a === void 0 ? void 0 : _a.refresh_token;
     const rtFromBody = (req.body && req.body.refreshToken) || undefined;
     const refreshToken = rtFromCookie || rtFromBody;
     if (!refreshToken) {
@@ -192,7 +203,7 @@ const refreshTokenController = async (req, res) => {
     }
     try {
         const decoded = jsonwebtoken_1.default.verify(refreshToken, process.env.JWT_SECRET || 'secret');
-        if (decoded?.tokenType && decoded.tokenType !== 'refresh') {
+        if ((decoded === null || decoded === void 0 ? void 0 : decoded.tokenType) && decoded.tokenType !== 'refresh') {
             return res.status(401).json({ success: false, message: 'Invalid refresh token' });
         }
         const user = await user_model_1.default.findById(decoded.sub);

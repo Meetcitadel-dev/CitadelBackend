@@ -179,6 +179,7 @@ class PaymentController {
         };
         // Cash Payment Endpoint - Simple Direct Booking
         this.createCashPayment = async (req, res) => {
+            var _a, _b, _c;
             try {
                 const { userId, eventId, eventType, amount, currency = 'INR', bookingDate, bookingTime, location, guests = 1, notes } = req.body;
                 // Validate required fields
@@ -245,7 +246,7 @@ class PaymentController {
                 console.log('✅ DinnerBooking created:', booking._id);
                 // Create payment record (without razorpay fields)
                 const payment = new payment_model_1.default({
-                    bookingId: booking._id?.toString() || '',
+                    bookingId: ((_a = booking._id) === null || _a === void 0 ? void 0 : _a.toString()) || '',
                     amount,
                     currency,
                     status: 'pending', // Cash payment is pending
@@ -284,7 +285,7 @@ class PaymentController {
                             paymentMethod: 'cash',
                             paymentGateway: 'cash',
                             paymentStatus: 'completed',
-                            bookingId: booking._id?.toString() || ''
+                            bookingId: ((_b = booking._id) === null || _b === void 0 ? void 0 : _b.toString()) || ''
                         });
                         console.log('✅ Booking confirmation email sent successfully');
                     }
@@ -297,7 +298,7 @@ class PaymentController {
                     success: true,
                     message: 'Dinner booked successfully!',
                     data: {
-                        bookingId: booking._id?.toString(),
+                        bookingId: (_c = booking._id) === null || _c === void 0 ? void 0 : _c.toString(),
                         booking: {
                             id: booking._id,
                             bookingStatus: booking.bookingStatus,

@@ -9,11 +9,11 @@ import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticateToken);
-
-// Get upcoming dinner events
+// Public route - Get upcoming dinner events (no auth required for viewing)
 router.get('/upcoming', getUpcomingEvents);
+
+// Protected routes - require authentication
+router.use(authenticateToken);
 
 // Get event details
 router.get('/:eventId', getEventDetails);

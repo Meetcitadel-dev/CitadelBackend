@@ -121,7 +121,7 @@ class EnhancedChatController {
                     }
                 })();
                 return {
-                    id: conversation?._id || null,
+                    id: (conversation === null || conversation === void 0 ? void 0 : conversation._id) || null,
                     userId: otherUser._id,
                     name: otherUser.name || otherUser.username || 'Unknown User',
                     profileImage,

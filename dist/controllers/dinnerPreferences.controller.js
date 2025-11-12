@@ -8,8 +8,9 @@ const dinnerPreferences_model_1 = __importDefault(require("../models/dinnerPrefe
 const personalityQuiz_model_1 = __importDefault(require("../models/personalityQuiz.model"));
 // Get user's dinner preferences
 const getDinnerPreferences = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -55,8 +56,9 @@ const getDinnerPreferences = async (req, res) => {
 exports.getDinnerPreferences = getDinnerPreferences;
 // Save initial setup preferences (city, areas, budget, etc.)
 const saveInitialPreferences = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { city, preferredAreas, budget, language, dietaryRestriction, drinksPreference, relationshipStatus } = req.body;
         if (!userId) {
             return res.status(401).json({
@@ -127,8 +129,9 @@ const getPersonalityQuizQuestions = async (req, res) => {
 exports.getPersonalityQuizQuestions = getPersonalityQuizQuestions;
 // Submit personality quiz answers
 const submitPersonalityQuiz = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { answers } = req.body;
         if (!userId) {
             return res.status(401).json({
@@ -177,8 +180,9 @@ const submitPersonalityQuiz = async (req, res) => {
 exports.submitPersonalityQuiz = submitPersonalityQuiz;
 // Update dinner preferences
 const updateDinnerPreferences = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const updates = req.body;
         if (!userId) {
             return res.status(401).json({

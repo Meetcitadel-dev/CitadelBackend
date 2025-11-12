@@ -15,9 +15,10 @@ const s3_service_1 = require("../services/s3.service");
 const Op = {}; // Placeholder for legacy Sequelize operators
 // Get user profile by username
 const getUserProfileByUsername = async (req, res) => {
+    var _a;
     try {
         const { username } = req.params;
-        const currentUserId = req.user?.id;
+        const currentUserId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!username) {
             return res.status(400).json({
                 success: false,
@@ -212,7 +213,7 @@ const getUserProfileByUsername = async (req, res) => {
             const connectedUserData = isUser1 ? conn.connectionUser2 : conn.connectionUser1;
             return {
                 id: connectedUser,
-                name: connectedUserData?.name || 'Unknown User'
+                name: (connectedUserData === null || connectedUserData === void 0 ? void 0 : connectedUserData.name) || 'Unknown User'
             };
         });
         // Prepare profile data
@@ -267,9 +268,10 @@ const getUserProfileByUsername = async (req, res) => {
 exports.getUserProfileByUsername = getUserProfileByUsername;
 // Get mutual friends list
 const getMutualFriends = async (req, res) => {
+    var _a;
     try {
         const { username } = req.params;
-        const currentUserId = req.user?.id;
+        const currentUserId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!username) {
             return res.status(400).json({
                 success: false,
@@ -373,8 +375,9 @@ const generateUsername = async (name) => {
 exports.generateUsername = generateUsername;
 // Update user's username
 const updateUsername = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const { username } = req.body;
         if (!userId) {
             return res.status(401).json({

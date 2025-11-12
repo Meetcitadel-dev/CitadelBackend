@@ -40,8 +40,9 @@ const getQuizQuestions = async (req, res) => {
 exports.getQuizQuestions = getQuizQuestions;
 // Submit quiz answers
 const submitQuizAnswers = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
@@ -106,8 +107,9 @@ const submitQuizAnswers = async (req, res) => {
 exports.submitQuizAnswers = submitQuizAnswers;
 // Get user's quiz results
 const getQuizResults = async (req, res) => {
+    var _a;
     try {
-        const userId = req.user?.id;
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
