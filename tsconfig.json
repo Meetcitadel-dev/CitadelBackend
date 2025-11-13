@@ -8,5 +8,8 @@
     "strict": true,
     "types": ["node"],
     "skipLibCheck": true
-  }
+  },
+  "exclude": [
+    "src/scripts/**"
+  ]
 }

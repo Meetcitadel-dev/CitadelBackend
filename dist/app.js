@@ -24,6 +24,7 @@ const enhancedChat_routes_1 = __importDefault(require("./routes/enhancedChat.rou
 const groupChat_routes_1 = __importDefault(require("./routes/groupChat.routes"));
 const payment_routes_1 = __importDefault(require("./routes/payment.routes"));
 const quiz_routes_1 = __importDefault(require("./routes/quiz.routes"));
+const personalityQuiz_routes_1 = __importDefault(require("./routes/personalityQuiz.routes"));
 const dinnerPreferences_routes_1 = __importDefault(require("./routes/dinnerPreferences.routes"));
 const dinnerEvents_routes_1 = __importDefault(require("./routes/dinnerEvents.routes"));
 const eventManagement_routes_1 = __importDefault(require("./routes/eventManagement.routes"));
@@ -101,6 +102,7 @@ app.use('/api/v1/groups', groupChat_routes_1.default);
 app.use('/api/v1/payments', payment_routes_1.default);
 app.use('/api/payments', payment_routes_1.default);
 app.use('/api/v1/quiz', quiz_routes_1.default);
+app.use('/api/quiz', personalityQuiz_routes_1.default);
 app.use('/api/v1/dinner-preferences', dinnerPreferences_routes_1.default);
 app.use('/api/v1/dinner-events', dinnerEvents_routes_1.default);
 app.use('/api/v1/event-management', eventManagement_routes_1.default);

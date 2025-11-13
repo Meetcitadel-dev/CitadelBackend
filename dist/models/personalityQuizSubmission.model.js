@@ -34,39 +34,48 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const PersonalityQuizQuestionSchema = new mongoose_1.Schema({
-    questionId: {
-        type: String,
-        required: true,
-        unique: true,
-        index: true
-    },
+const AnswerSchema = new mongoose_1.Schema({
     question: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
-    options: [{
-            type: String,
-            required: true
-        }],
-    category: {
+    answer: {
+        type: mongoose_1.Schema.Types.Mixed, // Can be string or number
+        required: true
+    }
+}, { _id: false });
+const PersonalityQuizSubmissionSchema = new mongoose_1.Schema({
+    quizId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        required: true,
+        ref: 'PersonalityQuizSet'
+    },
+    userName: {
         type: String,
-        enum: ['social', 'food', 'lifestyle', 'personality', 'interests'],
-        required: true
+        required: true,
+        trim: true
     },
-    order: {
-        type: Number,
-        required: true
+    answers: {
+        type: [AnswerSchema],
+        required: true,
+        validate: {
+            validator: function (answers) {
+                return answers && answers.length > 0;
+            },
+            message: 'At least one answer is required'
+        }
     },
-    isActive: {
-        type: Boolean,
-        default: true
+    submittedAt: {
+        type: Date,
+        default: Date.now
     }
 }, {
     timestamps: true,
-    collection: 'personality_quiz_questions'
+    collection: 'personalityQuizSubmissions'
 });
-// Indexes for efficient querying
-PersonalityQuizQuestionSchema.index({ order: 1 });
-PersonalityQuizQuestionSchema.index({ isActive: 1 });
-exports.default = mongoose_1.default.model('PersonalityQuizQuestion', PersonalityQuizQuestionSchema);
+// Create indexes for better query performance
+PersonalityQuizSubmissionSchema.index({ quizId: 1 });
+PersonalityQuizSubmissionSchema.index({ userName: 1 });
+PersonalityQuizSubmissionSchema.index({ submittedAt: -1 });
+exports.default = mongoose_1.default.model('PersonalityQuizSubmission', PersonalityQuizSubmissionSchema);

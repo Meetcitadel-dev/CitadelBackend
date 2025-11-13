@@ -34,39 +34,42 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const PersonalityQuizQuestionSchema = new mongoose_1.Schema({
-    questionId: {
-        type: String,
-        required: true,
-        unique: true,
-        index: true
-    },
+const QuestionSchema = new mongoose_1.Schema({
     question: {
         type: String,
-        required: true
+        required: true,
+        trim: true
+    },
+    type: {
+        type: String,
+        required: true,
+        enum: ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating'],
+        default: 'scale'
     },
     options: [{
             type: String,
-            required: true
-        }],
-    category: {
+            trim: true
+        }]
+}, { _id: false });
+const PersonalityQuizSetSchema = new mongoose_1.Schema({
+    title: {
         type: String,
-        enum: ['social', 'food', 'lifestyle', 'personality', 'interests'],
-        required: true
+        required: true,
+        trim: true,
+        default: 'Personality Quiz'
     },
-    order: {
-        type: Number,
-        required: true
-    },
-    isActive: {
-        type: Boolean,
-        default: true
+    questions: {
+        type: [QuestionSchema],
+        required: true,
+        validate: {
+            validator: function (questions) {
+                return Array.isArray(questions) && questions.length > 0;
+            },
+            message: 'At least one question is required'
+        }
     }
 }, {
     timestamps: true,
-    collection: 'personality_quiz_questions'
+    collection: 'personalityQuizzes'
 });
-// Indexes for efficient querying
-PersonalityQuizQuestionSchema.index({ order: 1 });
-PersonalityQuizQuestionSchema.index({ isActive: 1 });
-exports.default = mongoose_1.default.model('PersonalityQuizQuestion', PersonalityQuizQuestionSchema);
+exports.default = mongoose_1.default.model('PersonalityQuizSet', PersonalityQuizSetSchema);

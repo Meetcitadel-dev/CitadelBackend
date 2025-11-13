@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import Quiz from '../models/quiz.model';
 import QuizResponse from '../models/quizResponse.model';
 import User from '../models/user.model';
-import PersonalityQuiz from '../models/personalityQuiz.model';
+import PersonalityQuizSet from '../models/personalityQuizSet.model';
 import PersonalityQuizSubmission from '../models/personalityQuizSubmission.model';
 
 // Get quiz questions for a new user (no authentication required)
@@ -230,7 +230,7 @@ export const createQuiz = async (req: Request, res: Response) => {
     };
 
     // Create the quiz
-    const quiz = new PersonalityQuiz({
+    const quiz = new PersonalityQuizSet({
       title: title.trim(),
       questions: questions.map((q: any) => ({
         question: q.question.trim(),
@@ -264,7 +264,7 @@ export const createQuiz = async (req: Request, res: Response) => {
 // Get all personality quizzes
 export const getQuiz = async (req: Request, res: Response) => {
   try {
-    const quizzes = await PersonalityQuiz.find()
+    const quizzes = await PersonalityQuizSet.find()
       .sort({ createdAt: -1 })
       .select('-__v');
 
@@ -320,7 +320,7 @@ export const submitQuiz = async (req: Request, res: Response) => {
     }
 
     // Verify quiz exists
-    const quiz = await PersonalityQuiz.findById(quizId);
+    const quiz = await PersonalityQuizSet.findById(quizId);
     if (!quiz) {
       return res.status(404).json({
         success: false,

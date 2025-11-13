@@ -1,56 +1,51 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IQuestion {
+export interface IPersonalityQuizQuestion extends Document {
+  questionId: string;
   question: string;
-  type: 'yes-no' | 'multiple-choice' | 'scale' | 'text' | 'yesno' | 'choice' | 'rating';
-  options?: string[]; // For multiple-choice and choice questions
-}
-
-export interface IPersonalityQuiz extends Document {
-  title: string;
-  questions: IQuestion[];
+  options: string[];
+  category: 'social' | 'food' | 'lifestyle' | 'personality' | 'interests';
+  order: number;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const QuestionSchema = new Schema<IQuestion>({
+const PersonalityQuizQuestionSchema = new Schema<IPersonalityQuizQuestion>({
+  questionId: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true
+  },
   question: {
     type: String,
-    required: true,
-    trim: true
-  },
-  type: {
-    type: String,
-    required: true,
-    enum: ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating'],
-    default: 'scale'
+    required: true
   },
   options: [{
     type: String,
-    trim: true
-  }]
-}, { _id: false });
-
-const PersonalityQuizSchema = new Schema<IPersonalityQuiz>({
-  title: {
+    required: true
+  }],
+  category: {
     type: String,
-    required: true,
-    trim: true,
-    default: 'Personality Quiz'
+    enum: ['social', 'food', 'lifestyle', 'personality', 'interests'],
+    required: true
   },
-  questions: {
-    type: [QuestionSchema],
-    required: true,
-    validate: {
-      validator: function(questions: IQuestion[]) {
-        return questions && questions.length > 0;
-      },
-      message: 'At least one question is required'
-    }
+  order: {
+    type: Number,
+    required: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true,
-  collection: 'personalityQuizzes'
+  collection: 'personality_quiz_questions'
 });
 
-export default mongoose.model<IPersonalityQuiz>('PersonalityQuiz', PersonalityQuizSchema);
+// Indexes for efficient querying
+PersonalityQuizQuestionSchema.index({ order: 1 });
+PersonalityQuizQuestionSchema.index({ isActive: 1 });
+
+export default mongoose.model<IPersonalityQuizQuestion>('PersonalityQuizQuestion', PersonalityQuizQuestionSchema);

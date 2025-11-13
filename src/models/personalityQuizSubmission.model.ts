@@ -6,7 +6,7 @@ export interface IAnswer {
 }
 
 export interface IPersonalityQuizSubmission extends Document {
-  quizId: string;
+  quizId: mongoose.Types.ObjectId;
   userName: string;
   answers: IAnswer[];
   submittedAt: Date;
@@ -28,7 +28,7 @@ const PersonalityQuizSubmissionSchema = new Schema<IPersonalityQuizSubmission>({
   quizId: {
     type: Schema.Types.ObjectId,
     required: true,
-    ref: 'PersonalityQuiz'
+    ref: 'PersonalityQuizSet'
   },
   userName: {
     type: String,
