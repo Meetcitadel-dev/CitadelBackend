@@ -25,6 +25,11 @@
       "key": "userId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "quizId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -1674,6 +1679,71 @@
       ]
     },
     {
+      "name": "🧩 Personality Quiz",
+      "item": [
+        {
+          "name": "Create Quiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Personality Quiz\",\n  \"questions\": [\n    {\n      \"question\": \"I enjoy spontaneous plans more than well-planned ones.\",\n      \"type\": \"yes-no\"\n    },\n    {\n      \"question\": \"Do you consider yourself more of a:\",\n      \"type\": \"multiple-choice\",\n      \"options\": [\"Smart person\", \"Funny person\"]\n    },\n    {\n      \"question\": \"I am an introvert person.\",\n      \"type\": \"scale\"\n    },\n    {\n      \"question\": \"I am a creative person.\",\n      \"type\": \"scale\"\n    },\n    {\n      \"question\": \"I have an amazing college.\",\n      \"type\": \"scale\"\n    },\n    {\n      \"question\": \"I enjoy going out with friends.\",\n      \"type\": \"scale\"\n    },\n    {\n      \"question\": \"How important is family to you?\",\n      \"type\": \"scale\"\n    },\n    {\n      \"question\": \"How important is humour to you?\",\n      \"type\": \"scale\"\n    },\n    {\n      \"question\": \"Does academic success matter to you?\",\n      \"type\": \"scale\"\n    },\n    {\n      \"question\": \"I like to work out or play sports regularly.\",\n      \"type\": \"yes-no\"\n    },\n    {\n      \"question\": \"What's your go-to weekend plan?\",\n      \"type\": \"multiple-choice\",\n      \"options\": [\"Partying\", \"Chill in cafe\", \"Long drives\", \"Bed rotting\", \"Binge watching\"]\n    },\n    {\n      \"question\": \"What's your go-to music vibe?\",\n      \"type\": \"multiple-choice\",\n      \"options\": [\"Bollywood\", \"Indie\", \"Rap\", \"Lo-fi\", \"EDM\", \"Depends on mood\"]\n    },\n    {\n      \"question\": \"I'd describe my college life as...\",\n      \"type\": \"multiple-choice\",\n      \"options\": [\"Hustle & grind\", \"Chill & spontaneous\", \"Balanced\", \"Chaos & fun\"]\n    },\n    {\n      \"question\": \"Relationship status\",\n      \"type\": \"multiple-choice\",\n      \"options\": [\"Single\", \"Committed\", \"Not looking for anything\"]\n    },\n    {\n      \"question\": \"I prefer working in teams rather than alone.\",\n      \"type\": \"scale\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/quiz",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "quiz"]
+            },
+            "description": "Create a new personality quiz with 15 questions. Question types supported: yes-no/yesno, multiple-choice/choice, scale/rating (1-10), text. Both old and new formats are accepted (e.g., 'yesno' or 'yes-no', 'choice' or 'multiple-choice', 'rating' or 'scale')."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Quizzes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/quiz",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "quiz"]
+            },
+            "description": "Get all personality quizzes from the database"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Quiz Answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quizId\": \"{{quizId}}\",\n  \"userName\": \"John Doe\",\n  \"answers\": [\n    {\n      \"question\": \"I enjoy spontaneous plans more than well-planned ones.\",\n      \"answer\": \"Yes\"\n    },\n    {\n      \"question\": \"Do you consider yourself more of a:\",\n      \"answer\": \"Funny person\"\n    },\n    {\n      \"question\": \"I am an introvert person.\",\n      \"answer\": 7\n    },\n    {\n      \"question\": \"I am a creative person.\",\n      \"answer\": 9\n    },\n    {\n      \"question\": \"I have an amazing college.\",\n      \"answer\": 8\n    },\n    {\n      \"question\": \"I enjoy going out with friends.\",\n      \"answer\": 9\n    },\n    {\n      \"question\": \"How important is family to you?\",\n      \"answer\": 10\n    },\n    {\n      \"question\": \"How important is humour to you?\",\n      \"answer\": 9\n    },\n    {\n      \"question\": \"Does academic success matter to you?\",\n      \"answer\": 7\n    },\n    {\n      \"question\": \"I like to work out or play sports regularly.\",\n      \"answer\": \"Yes\"\n    },\n    {\n      \"question\": \"What's your go-to weekend plan?\",\n      \"answer\": \"Chill in cafe\"\n    },\n    {\n      \"question\": \"What's your go-to music vibe?\",\n      \"answer\": \"Depends on mood\"\n    },\n    {\n      \"question\": \"I'd describe my college life as...\",\n      \"answer\": \"Balanced\"\n    },\n    {\n      \"question\": \"Relationship status\",\n      \"answer\": \"Single\"\n    },\n    {\n      \"question\": \"I prefer working in teams rather than alone.\",\n      \"answer\": 6\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/quiz/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "quiz", "submit"]
+            },
+            "description": "Submit quiz answers. Replace YOUR_QUIZ_ID_HERE with actual quiz ID from Create Quiz response. Answer format: yes-no questions use 'Yes'/'No', scale questions use numbers 1-10, multiple-choice uses exact option text."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "🎯 Event Management (Admin)",
       "item": [
         {
@@ -1873,6 +1943,14 @@
           "// Auto-extract user ID from profile responses",
           "if (pm.response.json() && pm.response.json().data && pm.response.json().data.id) {",
           "    pm.environment.set('userId', pm.response.json().data.id);",
+          "}",
+          "",
+          "// Auto-extract quiz ID from Create Quiz response",
+          "if (pm.response.json() && pm.response.json().data && pm.response.json().data.id) {",
+          "    const responseData = pm.response.json().data;",
+          "    if (responseData.id && pm.request.url.toString().includes('/api/quiz') && pm.request.method === 'POST') {",
+          "        pm.collectionVariables.set('quizId', responseData.id);",
+          "    }",
           "}"
         ]
       }

@@ -1,0 +1,71 @@
+{
+  "title": "Personality Quiz",
+  "questions": [
+    {
+      "question": "I enjoy spontaneous plans more than well-planned ones.",
+      "type": "yes-no"
+    },
+    {
+      "question": "Do you consider yourself more of a:",
+      "type": "multiple-choice",
+      "options": ["Smart person", "Funny person"]
+    },
+    {
+      "question": "I am an introvert person.",
+      "type": "scale"
+    },
+    {
+      "question": "I am a creative person.",
+      "type": "scale"
+    },
+    {
+      "question": "I have an amazing college.",
+      "type": "scale"
+    },
+    {
+      "question": "I enjoy going out with friends.",
+      "type": "scale"
+    },
+    {
+      "question": "How important is family to you?",
+      "type": "scale"
+    },
+    {
+      "question": "How important is humour to you?",
+      "type": "scale"
+    },
+    {
+      "question": "Does academic success matter to you?",
+      "type": "scale"
+    },
+    {
+      "question": "I like to work out or play sports regularly.",
+      "type": "yes-no"
+    },
+    {
+      "question": "What's your go-to weekend plan?",
+      "type": "multiple-choice",
+      "options": ["Partying", "Chill in cafe", "Long drives", "Bed rotting", "Binge watching"]
+    },
+    {
+      "question": "What's your go-to music vibe?",
+      "type": "multiple-choice",
+      "options": ["Bollywood", "Indie", "Rap", "Lo-fi", "EDM", "Depends on mood"]
+    },
+    {
+      "question": "I'd describe my college life as...",
+      "type": "multiple-choice",
+      "options": ["Hustle & grind", "Chill & spontaneous", "Balanced", "Chaos & fun"]
+    },
+    {
+      "question": "Relationship status",
+      "type": "multiple-choice",
+      "options": ["Single", "Committed", "Not looking for anything"]
+    },
+    {
+      "question": "I prefer working in teams rather than alone.",
+      "type": "scale"
+    }
+  ]
+}
+

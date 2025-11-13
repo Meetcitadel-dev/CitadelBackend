@@ -1,0 +1,67 @@
+{
+  "quizId": "YOUR_QUIZ_ID_HERE",
+  "userName": "John Doe",
+  "answers": [
+    {
+      "question": "I enjoy spontaneous plans more than well-planned ones.",
+      "answer": "Yes"
+    },
+    {
+      "question": "Do you consider yourself more of a:",
+      "answer": "Funny person"
+    },
+    {
+      "question": "I am an introvert person.",
+      "answer": 7
+    },
+    {
+      "question": "I am a creative person.",
+      "answer": 9
+    },
+    {
+      "question": "I have an amazing college.",
+      "answer": 8
+    },
+    {
+      "question": "I enjoy going out with friends.",
+      "answer": 9
+    },
+    {
+      "question": "How important is family to you?",
+      "answer": 10
+    },
+    {
+      "question": "How important is humour to you?",
+      "answer": 9
+    },
+    {
+      "question": "Does academic success matter to you?",
+      "answer": 7
+    },
+    {
+      "question": "I like to work out or play sports regularly.",
+      "answer": "Yes"
+    },
+    {
+      "question": "What's your go-to weekend plan?",
+      "answer": "Chill in cafe"
+    },
+    {
+      "question": "What's your go-to music vibe?",
+      "answer": "Depends on mood"
+    },
+    {
+      "question": "I'd describe my college life as...",
+      "answer": "Balanced"
+    },
+    {
+      "question": "Relationship status",
+      "answer": "Single"
+    },
+    {
+      "question": "I prefer working in teams rather than alone.",
+      "answer": 6
+    }
+  ]
+}
+

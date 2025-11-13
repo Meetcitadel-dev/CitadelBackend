@@ -2,7 +2,7 @@ import express from 'express';
 import { 
   getQuizQuestions, 
   submitQuizAnswers, 
-  getQuizResults 
+  getQuizResults
 } from '../controllers/quiz.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
 
