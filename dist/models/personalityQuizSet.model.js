@@ -43,7 +43,7 @@ const QuestionSchema = new mongoose_1.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating'],
+        enum: ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating', 'input'],
         default: 'scale'
     },
     options: [{

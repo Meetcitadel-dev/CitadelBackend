@@ -7,7 +7,8 @@ export type QuestionType =
   | 'text'
   | 'yesno'
   | 'choice'
-  | 'rating';
+  | 'rating'
+  | 'input';
 
 export interface IQuestion {
   question: string;
@@ -31,7 +32,7 @@ const QuestionSchema = new Schema<IQuestion>({
   type: {
     type: String,
     required: true,
-    enum: ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating'],
+    enum: ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating', 'input'],
     default: 'scale'
   },
   options: [{

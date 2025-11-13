@@ -184,11 +184,11 @@ const createQuiz = async (req, res) => {
                 });
             }
             // Accept both old and new type formats
-            const validTypes = ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating'];
+            const validTypes = ['yes-no', 'multiple-choice', 'scale', 'text', 'yesno', 'choice', 'rating', 'input'];
             if (!q.type || !validTypes.includes(q.type)) {
                 return res.status(400).json({
                     success: false,
-                    error: `Question ${i + 1}: type must be one of: yes-no, multiple-choice, scale, text, yesno, choice, rating`
+                    error: `Question ${i + 1}: type must be one of: yes-no, multiple-choice, scale, text, yesno, choice, rating, input`
                 });
             }
             // For multiple-choice/choice questions, options are required
