@@ -65,6 +65,7 @@ export const uploadUserImage = async (req: Request, res: Response) => {
     // Save to database (reuse existing columns for zero-downtime)
     const userImage = await (UserImage as any).create({
       userId,
+      imageUrl: cloudfrontUrl,
       s3Key,
       cloudfrontUrl,
       originalName: originalname,

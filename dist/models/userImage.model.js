@@ -41,10 +41,7 @@ const UserImageSchema = new mongoose_1.Schema({
         ref: 'User',
         index: true
     },
-    imageUrl: {
-        type: String,
-        required: true
-    },
+    imageUrl: String,
     cloudfrontUrl: String,
     s3Key: String,
     originalName: String,

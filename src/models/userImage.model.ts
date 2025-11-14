@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IUserImage extends Document {
   userId: string;
-  imageUrl: string;
+  imageUrl?: string;
   cloudfrontUrl?: string;
   s3Key?: string;
   originalName?: string;
@@ -20,10 +20,7 @@ const UserImageSchema = new Schema<IUserImage>({
     ref: 'User',
     index: true
   },
-  imageUrl: {
-    type: String,
-    required: true
-  },
+  imageUrl: String,
   cloudfrontUrl: String,
   s3Key: String,
   originalName: String,
