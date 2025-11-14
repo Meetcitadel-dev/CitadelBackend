@@ -121,7 +121,7 @@ const getUserImages = async (req, res) => {
                 freshUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
             }
             catch (error) {
-                console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
+                console.warn('CloudFront signing failed for image', img._id, 'using S3 signed URL as fallback:', error);
                 freshUrl = (0, s3_service_1.generateS3SignedUrl)(img.s3Key);
             }
             return {
@@ -298,13 +298,10 @@ const getMyProfile = async (req, res) => {
         // Fetch university data if universityId exists
         let university = null;
         if (user.universityId) {
-            university = await university_model_1.default.findByPk(user.universityId);
+            university = await university_model_1.default.findById(user.universityId);
         }
         // Fetch slot mappings and resolve images in slot order (0..4)
-        const slotMappings = await userImageSlot_model_1.default.findAll({
-            where: { userId },
-            order: [['slot', 'ASC']],
-        });
+        const slotMappings = await userImageSlot_model_1.default.find({ userId }).sort({ slot: 1 });
         const slotToImageId = new Map();
         for (const m of slotMappings) {
             slotToImageId.set(m.slot, m.userImageId);
@@ -312,26 +309,22 @@ const getMyProfile = async (req, res) => {
         // Prefetch all images referenced by slots
         const referencedIds = Array.from(slotToImageId.values());
         const referencedImages = referencedIds.length
-            ? await userImage_model_1.default.findAll({ where: { id: referencedIds } })
+            ? await userImage_model_1.default.find({ _id: { $in: referencedIds } })
             : [];
         const idToImage = new Map();
         for (const img of referencedImages)
-            idToImage.set(img.id, img);
+            idToImage.set(img._id.toString(), img);
         // For library or fallback (optional): still fetch recent images
-        const recentImages = await userImage_model_1.default.findAll({
-            where: { userId },
-            order: [['createdAt', 'DESC']],
-            limit: 20,
-        });
+        const recentImages = await userImage_model_1.default.find({ userId }).sort({ createdAt: -1 }).limit(20);
         const useUT = process.env.USE_UPLOADTHING === 'true';
         const freshen = async (img) => {
             if (useUT) {
                 return {
-                    id: img.id,
+                    id: img._id.toString(),
                     cloudfrontUrl: img.cloudfrontUrl,
-                    originalName: img.originalName,
-                    mimeType: img.mimeType,
-                    fileSize: img.fileSize,
+                    originalName: img.originalName || null,
+                    mimeType: img.mimeType || null,
+                    fileSize: img.fileSize || null,
                     createdAt: img.createdAt
                 };
             }
@@ -340,15 +333,15 @@ const getMyProfile = async (req, res) => {
                 freshUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
             }
             catch (error) {
-                console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
+                console.warn('CloudFront signing failed for image', img._id, 'using S3 signed URL as fallback:', error);
                 freshUrl = (0, s3_service_1.generateS3SignedUrl)(img.s3Key);
             }
             return {
-                id: img.id,
+                id: img._id.toString(),
                 cloudfrontUrl: freshUrl,
-                originalName: img.originalName,
-                mimeType: img.mimeType,
-                fileSize: img.fileSize,
+                originalName: img.originalName || null,
+                mimeType: img.mimeType || null,
+                fileSize: img.fileSize || null,
                 createdAt: img.createdAt
             };
         };
@@ -366,12 +359,12 @@ const getMyProfile = async (req, res) => {
         const library = await Promise.all(recentImages.map((img) => freshen(img)));
         // Prepare profile data
         const profileData = {
-            id: user.id,
+            id: user._id.toString(),
             email: user.email,
             name: user.name || null,
             username: user.username || null,
             university: university ? {
-                id: university.id,
+                id: university._id.toString(),
                 name: university.name,
                 domain: university.domain,
                 country: university.country
@@ -419,10 +412,7 @@ const testSignedUrl = async (req, res) => {
             return res.status(401).json({ error: 'User not authenticated' });
         }
         // Get the first image for the user
-        const userImage = await userImage_model_1.default.findOne({
-            where: { userId },
-            order: [['createdAt', 'DESC']],
-        });
+        const userImage = await userImage_model_1.default.findOne({ userId }).sort({ createdAt: -1 });
         if (!userImage) {
             return res.status(404).json({ error: 'No images found for user' });
         }
@@ -582,15 +572,18 @@ const updateProfile = async (req, res) => {
             updateData.phoneNumber = phoneNumber;
         if (dateOfBirth !== undefined)
             updateData.dateOfBirth = new Date(dateOfBirth);
-        await user.update(updateData);
+        await user.updateOne(updateData);
         // Fetch updated user with university data
-        const updatedUser = await user_model_1.default.findByPk(userId);
-        const university = (updatedUser === null || updatedUser === void 0 ? void 0 : updatedUser.universityId) ? await university_model_1.default.findByPk(updatedUser.universityId) : null;
+        const updatedUser = await user_model_1.default.findById(userId);
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found after update'
+            });
+        }
+        const university = updatedUser.universityId ? await university_model_1.default.findById(updatedUser.universityId) : null;
         // Fetch user images
-        const images = await userImage_model_1.default.findAll({
-            where: { userId },
-            order: [['createdAt', 'DESC']],
-        });
+        const images = await userImage_model_1.default.find({ userId }).sort({ createdAt: -1 });
         // Generate fresh signed URLs for all images
         const imagesWithFreshUrls = await Promise.all(images.map(async (img) => {
             let freshUrl;
@@ -598,26 +591,26 @@ const updateProfile = async (req, res) => {
                 freshUrl = (0, s3_service_1.generateCloudFrontSignedUrl)(img.s3Key);
             }
             catch (error) {
-                console.warn('CloudFront signing failed for image', img.id, 'using S3 signed URL as fallback:', error);
+                console.warn('CloudFront signing failed for image', img._id, 'using S3 signed URL as fallback:', error);
                 freshUrl = (0, s3_service_1.generateS3SignedUrl)(img.s3Key);
             }
             return {
-                id: img.id,
+                id: img._id.toString(),
                 cloudfrontUrl: freshUrl,
-                originalName: img.originalName,
-                mimeType: img.mimeType,
-                fileSize: img.fileSize,
+                originalName: img.originalName || null,
+                mimeType: img.mimeType || null,
+                fileSize: img.fileSize || null,
                 createdAt: img.createdAt
             };
         }));
         // Prepare response data
         const responseData = {
-            id: updatedUser.id,
+            id: updatedUser._id.toString(),
             name: updatedUser.name,
             username: updatedUser.username,
             email: updatedUser.email,
             university: university ? {
-                id: university.id,
+                id: university._id.toString(),
                 name: university.name,
                 domain: university.domain,
                 country: university.country
@@ -677,18 +670,24 @@ const deleteAccount = async (req, res) => {
         }
         console.log(`🗑️  Starting account deletion for user ${userId} (${user.email})`);
         // 1. Delete all user images from S3 and database
-        const userImages = await userImage_model_1.default.findAll({ where: { userId } });
+        const userImages = await userImage_model_1.default.find({ userId });
         console.log(`📸 Deleting ${userImages.length} user images`);
+        const useUT = process.env.USE_UPLOADTHING === 'true';
         for (const image of userImages) {
             try {
-                await (0, s3_service_1.deleteImage)(image.s3Key);
-                console.log(`✅ Deleted image from S3: ${image.s3Key}`);
+                if (useUT) {
+                    await (0, uploadthing_service_1.utDeleteImageByKey)(image.s3Key);
+                }
+                else {
+                    await (0, s3_service_1.deleteImage)(image.s3Key);
+                }
+                console.log(`✅ Deleted image from storage: ${image.s3Key}`);
             }
             catch (error) {
-                console.warn(`⚠️  Failed to delete image from S3: ${image.s3Key}`, error);
+                console.warn(`⚠️  Failed to delete image from storage: ${image.s3Key}`, error);
             }
         }
-        await userImage_model_1.default.destroy({ where: { userId } });
+        await userImage_model_1.default.deleteMany({ userId });
         // 2. Delete all connections where user is involved
         console.log('🔗 Deleting user connections');
         await connection_model_1.default.destroy({

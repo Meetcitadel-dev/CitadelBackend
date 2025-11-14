@@ -46,6 +46,10 @@ const UserImageSchema = new mongoose_1.Schema({
         required: true
     },
     cloudfrontUrl: String,
+    s3Key: String,
+    originalName: String,
+    mimeType: String,
+    fileSize: Number,
     slot: {
         type: Number,
         default: 0
